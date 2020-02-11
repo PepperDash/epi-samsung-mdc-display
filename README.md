@@ -17,19 +17,19 @@ This is a plugin repo for Samsung MDC displays and adds features needed that are
 This plugin was built using the Samsung SEC-VD-DSW Multiple Display Control document, Ver. 14.4, 2018-4-4.
 
 ### RS232 Specification ###
-| 				| 			|
-| ----- 		| ----- 	|
-| Baudrate 		| 9600 		|
-| Data Bits 	| 8 		|
-| Parity 		| None 		|
-| Stop Bits 	| 1 		|
-| Flow Control 	| None 		|
+|              |      |
+|--------------|------|
+| Baudrate     | 9600 |
+| Data Bits    | 8    |
+| Parity       | None |
+| Stop Bits    | 1    |
+| Flow Control | None |
 
 ### Network Specification ###
-| 				| 				|
-| ----- 		| ----- 		|
-| Default IP	| 192.168.0.10 	|
-| Port 			| 1515 			|
+|            |              |
+|------------|--------------|
+| Default IP | 192.168.0.10 |
+| Port       | 1515         |
 
 ## Example Configuration Object ##
 ### Display Object using RS-232 ###
