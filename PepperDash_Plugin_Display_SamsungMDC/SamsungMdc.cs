@@ -54,6 +54,10 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		public bool IsInStandby { get; private set; }
 		bool IsPoweringOnIgnorePowerFb;
 
+        CTimer PollRing;
+
+        public List<BoolFeedback> InputFeedback;
+        public List<bool> _InputFeedback;
 		public IntFeedback InputNumberFeedback;
 		public static List<string> InputKeys = new List<string>();
 		public const int InputPowerOn = 101;
@@ -69,8 +73,11 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			{
 				this._InputNumber = value;
 				InputNumberFeedback.FireUpdate();
+                UpdateBooleanFeedback(value);
 			}
 		}
+
+        
 
 		public IntFeedback CurrentTemperatureFeedback;
 
@@ -383,6 +390,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			: base(config.Key, config.Name)
 		{
 			Communication = CommFactory.CreateCommForDevice(config);
+            Communication.BytesReceived += new EventHandler<GenericCommMethodReceiveBytesArgs>(Communication_BytesReceived);
 			var props = config.Properties.ToObject<SamsungMDCDisplayPropertiesConfig>();
 			if (props == null || props.Id == null)
 			{
@@ -392,6 +400,14 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			{
 				ID = Convert.ToByte(props.Id, 16);
 			}
+            _InputFeedback = new List<bool>();
+            InputFeedback = new List<BoolFeedback>();
+            for (int i = 0; i < 8; i++)
+            {
+                int j = i;
+                _InputFeedback.Add(false);
+                InputFeedback.Add(new BoolFeedback(() => _InputFeedback[j]));
+            }
 
 			Init();
 		}		
@@ -416,7 +432,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			CooldownTime = 8000;
 
 			//TODO: determine your poll rate the first value in teh GenericCommunicationMonitor, currently 45s (45,000)
-			CommunicationMonitor = new GenericCommunicationMonitor(this, Communication, 45000, 180000, 300000, StatusGet);
+			CommunicationMonitor = new GenericCommunicationMonitor(this, Communication, 10000, 180000, 300000, StatusGet);
 			DeviceManager.AddDevice(CommunicationMonitor);
 
 			VolumeIncrementer = new ActionIncrementer(655, 0, 65535, 800, 80,
@@ -487,8 +503,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		/// Communication bytes recieved
 		/// </summary>
 		/// <param name="sender"></param>
-		void Communication_BytesReceived(object sender, GenericCommMethodReceiveBytesArgs e)
-		{
+		void Communication_BytesReceived(object sender, GenericCommMethodReceiveBytesArgs e)       
+        {
 			// This is probably not thread-safe buffering
 			// Append the incoming bytes with whatever is in the buffer
 			var newBytes = new byte[IncomingBuffer.Length + e.Bytes.Length];
@@ -650,6 +666,33 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			{
 				_CurrentInputPort = newInput;
 				CurrentInputFeedback.FireUpdate();
+                var key = newInput.Key;
+                switch (key)
+                {
+                    case "hdmiIn1":
+                        InputNumber = 1;
+                        break;
+                    case "hdmiIn2" :
+                        InputNumber = 2;
+                        break;
+                    case "hdmiIn3" :
+                        InputNumber = 3;
+                        break;
+                    case "hdmiIn4" :
+                        InputNumber = 4;
+                        break;
+                    case "displayPortIn1" :
+                        InputNumber = 5;
+                        break;
+                    case "displayPortIn2" :
+                        InputNumber = 6;
+                        break;
+                    case "dviIn" :
+                        InputNumber = 7;
+                        break;
+                    default:
+                        break;
+                }
 			}
 		}
 
@@ -696,7 +739,12 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		/// </summary>
 		public void StatusGet()
 		{
-			SendBytes(new byte[] { Header, StatusControlCmd, 0x00, 0x00, StatusControlGet, 0x00 });
+			//SendBytes(new byte[] { Header, StatusControlCmd, 0x00, 0x00, StatusControlGet, 0x00 });
+            
+            PowerGet();
+            if (PollRing != null) PollRing = null;
+            PollRing = new CTimer(o => InputGet(), null, 1000);
+            
 		}
 
 		/// <summary>
@@ -746,6 +794,24 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 					}, CooldownTime);
 			}
 		}
+
+        private void UpdateBooleanFeedback(int data)
+        {
+            if (_InputFeedback[data] == true)
+                return;
+            else
+            {
+                for (int i = 1; i < 8; i++)
+                {
+                    _InputFeedback[i] = false;
+                }
+                _InputFeedback[data] = true;
+                foreach (var item in InputFeedback)
+                {
+                    item.FireUpdate();
+                }
+            }
+        }
 
 		/// <summary>		
 		/// Power toggle (Cmd: 0x11) pdf page 42 
@@ -839,6 +905,10 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		public void InputGet()
 		{
 			SendBytes(new byte[] { Header, InputControlCmd, 0x00, 0x00, 0x00 });
+            
+            if (PollRing != null) PollRing = null;
+            PollRing = new CTimer(o => VolumeGet(), null, 1000);
+            
 		}
 
 		/// <summary>
@@ -891,7 +961,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			_LastVolumeSent = level;
 			var scaled = (int)NumericalHelpers.Scale(level, 0, 65535, 0, 100);
 			// The inputs to Scale ensure that byte won't overflow
-			SendBytes(new byte[] { Header, VolumeMuteControlCmd, 0x00, 0x01, Convert.ToByte(scaled), 0x00 });
+            SendBytes(new byte[] { Header, VolumeLevelControlCmd, 0x00, 0x01, Convert.ToByte(scaled), 0x00 });
 		}
 
 		#region IBasicVolumeWithFeedback Members
@@ -990,7 +1060,9 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		/// </summary>
 		public void VolumeGet()
 		{
-			SendBytes(new byte[] { Header, VolumeMuteControlCmd, 0x00, 0x00, 0x00 });
+            SendBytes(new byte[] { Header, VolumeLevelControlCmd, 0x00, 0x00, 0x00 });
+            if (PollRing != null) PollRing = null;
+            PollRing = new CTimer(o => MuteGet(), null, 1000);
 		}
 
 		#endregion

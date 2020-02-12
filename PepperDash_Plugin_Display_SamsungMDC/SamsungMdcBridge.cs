@@ -11,6 +11,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 {
 	public static class SamsungMDCDisplayBridge
 	{
+        
 		/// <summary>
 		/// Link to API using bridge map
 		/// </summary>
@@ -84,8 +85,10 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 				trilist.SetSigTrueAction((ushort)(joinMap.InputSelectOffset + count), () => { displayDevice.ExecuteSwitch(displayDevice.InputPorts[i.Key.ToString()].Selector); });
 				Debug.Console(2, displayDevice, "Setting Input Press Select Action on Digital Join {0} to Input: {1}", joinMap.InputSelectOffset + count, displayDevice.InputPorts[i.Key.ToString()].Key.ToString());
 				trilist.StringInput[(ushort)(joinMap.InputNamesOffset + count)].StringValue = i.Key.ToString();
-				count++;
+                displayDevice.InputFeedback[count].LinkInputSig(trilist.BooleanInput[joinMap.InputSelectOffset + (uint)count]);
+                count++;
 			}
+
 
 			// Input analog
 			Debug.Console(2, displayDevice, "Setting Input Value Select Action on Analog Join {0}", joinMap.InputSelect);
@@ -119,6 +122,9 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 				Debug.Console(2, displayDevice, "Setting VolumeMuteToggle Control & Feedback on Digital Join {0}", joinMap.VolumeMute);
 				trilist.SetSigTrueAction(joinMap.VolumeMute, () => volumeDisplay.MuteToggle());
 
+                trilist.SetSigTrueAction(joinMap.VolumeMuteOn, () => displayDevice.MuteOn());
+                trilist.SetSigTrueAction(joinMap.VolumeMuteOff, () => displayDevice.MuteOff());
+
 				var volumeDisplayWithFeedback = volumeDisplay as IBasicVolumeWithFeedback;
 				if (volumeDisplayWithFeedback != null)
 				{
@@ -126,7 +132,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 					Debug.Console(2, displayDevice, "Setting VolumeLevel Control & Feedback on Analog Join {0}", joinMap.VolumeLevel);
 
 					volumeDisplayWithFeedback.VolumeLevelFeedback.LinkInputSig(trilist.UShortInput[joinMap.VolumeLevel]);
-					volumeDisplayWithFeedback.MuteFeedback.LinkInputSig(trilist.BooleanInput[joinMap.VolumeMute]);
+                    volumeDisplayWithFeedback.MuteFeedback.LinkInputSig(trilist.BooleanInput[joinMap.VolumeMuteOn]);
+                    volumeDisplayWithFeedback.MuteFeedback.LinkComplementInputSig(trilist.BooleanInput[joinMap.VolumeMuteOff]);
 				}
 			}
 		}
@@ -139,6 +146,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		static void CurrentInputFeedback_OutputChange(object sender, FeedbackEventArgs e)
 		{
 			Debug.Console(0, "CurrentInputFeedback_OutputChange {0}", e.StringValue);
+            
 		}
 
 		/// <summary>

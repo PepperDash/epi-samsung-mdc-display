@@ -35,6 +35,14 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         /// Toggles the mute state.  Feedback is high when volume is muted
         /// </summary>
         public uint VolumeMute { get; set; }
+        /// <summary>
+        /// Sets mute state one.
+        /// </summary>
+        public uint VolumeMuteOn { get; set; }
+        /// <summary>
+        /// Sets mute state off
+        /// </summary>
+        public uint VolumeMuteOff { get; set; }
 		/// <summary>
 		/// Polls for the current max temperature threshold
 		/// </summary>
@@ -91,7 +99,9 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			IsTwoWayDisplay = 3;
 			VolumeUp = 5;
 			VolumeDown = 6;
-			VolumeMute = 7;			
+			VolumeMute = 7;
+            VolumeMuteOn = 8;
+            VolumeMuteOff = 9;
 			IsOnline = 50;
 
 			// Digital offsets (joinStart+offset)
