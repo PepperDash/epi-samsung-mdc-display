@@ -1,0 +1,23 @@
+C:\Development\epi-display-samsung-mdc\epi-display-samsung-mdc\obj\Debug\ResolveAssemblyReference.cache
+C:\Development\epi-display-samsung-mdc\epi-display-samsung-mdc\bin\Debug\PepperDash_Plugin_Display_SamsungMDC.dll
+C:\Development\epi-display-samsung-mdc\epi-display-samsung-mdc\bin\Debug\PepperDash_Plugin_Display_SamsungMDC.pdb
+C:\Development\epi-display-samsung-mdc\epi-display-samsung-mdc\bin\Debug\Crestron.SimplSharpPro.DeviceSupport.dll
+C:\Development\epi-display-samsung-mdc\epi-display-samsung-mdc\bin\Debug\PepperDash_Core.dll
+C:\Development\epi-display-samsung-mdc\epi-display-samsung-mdc\bin\Debug\PepperDash_Essentials_Core.dll
+C:\Development\epi-display-samsung-mdc\epi-display-samsung-mdc\bin\Debug\PepperDashEssentials.dll
+C:\Development\epi-display-samsung-mdc\epi-display-samsung-mdc\bin\Debug\SimplSharpNewtonsoft.dll
+C:\Development\epi-display-samsung-mdc\epi-display-samsung-mdc\bin\Debug\SimplSharpReflectionInterface.dll
+C:\Development\epi-display-samsung-mdc\epi-display-samsung-mdc\bin\Debug\SimplSharpTimerEventInterface.dll
+C:\Development\epi-display-samsung-mdc\epi-display-samsung-mdc\bin\Debug\Crestron.SimplSharpPro.Lighting.dll
+C:\Development\epi-display-samsung-mdc\epi-display-samsung-mdc\bin\Debug\Crestron.SimplSharpPro.Gateways.dll
+C:\Development\epi-display-samsung-mdc\epi-display-samsung-mdc\bin\Debug\SimplSharpSQLHelperInterface.dll
+C:\Development\epi-display-samsung-mdc\epi-display-samsung-mdc\bin\Debug\PepperDash_Essentials_DM.dll
+C:\Development\epi-display-samsung-mdc\epi-display-samsung-mdc\bin\Debug\Crestron.SimplSharpPro.Fusion.dll
+C:\Development\epi-display-samsung-mdc\epi-display-samsung-mdc\bin\Debug\Crestron.SimplSharpPro.Shades.dll
+C:\Development\epi-display-samsung-mdc\epi-display-samsung-mdc\bin\Debug\Crestron.SimplSharpPro.EthernetCommunications.dll
+C:\Development\epi-display-samsung-mdc\epi-display-samsung-mdc\bin\Debug\Crestron.SimplSharpPro.UI.dll
+C:\Development\epi-display-samsung-mdc\epi-display-samsung-mdc\bin\Debug\Essentials Devices Common.dll
+C:\Development\epi-display-samsung-mdc\epi-display-samsung-mdc\bin\Debug\Crestron.SimplSharpPro.GeneralIO.dll
+C:\Development\epi-display-samsung-mdc\epi-display-samsung-mdc\bin\Debug\Crestron.SimplSharpPro.DM.dll
+C:\Development\epi-display-samsung-mdc\epi-display-samsung-mdc\obj\Debug\PepperDash_Plugin_Display_SamsungMDC.dll
+C:\Development\epi-display-samsung-mdc\epi-display-samsung-mdc\obj\Debug\PepperDash_Plugin_Display_SamsungMDC.pdb
