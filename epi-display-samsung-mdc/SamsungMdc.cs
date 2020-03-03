@@ -23,7 +23,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			PepperDash.Essentials.Core.DeviceFactory.AddFactoryForType("samsungmdcplugin", PdtSamsungMdcDisplay.BuildDevice);
 		}
 
-		public static string MinimumEssentialsFrameworkVersion = "1.4.31";
+		public static string MinimumEssentialsFrameworkVersion = "1.4.32";
 
 		public static PdtSamsungMdcDisplay BuildDevice(DeviceConfig dc)
 		{
@@ -44,9 +44,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		bool _IsCoolingDown;
 		ushort _VolumeLevelForSig;
 		int _LastVolumeSent;
-		bool _IsMuted;
-		ushort _MaxTemperature;
-		ushort _CurrentTemperature;
+		bool _IsMuted;		
 		RoutingInputPort _CurrentInputPort;
 		byte[] IncomingBuffer = new byte[] { };
 		ActionIncrementer VolumeIncrementer;
@@ -84,10 +82,38 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			}
 		}
         private bool ScaleVolume { get; set; }
+		
+		public IntFeedback CurrentLedTemperatureCelsiusFeedback;
+		public IntFeedback CurrentLedTemperatureFahrenheitFeedback;
 
-        
+		private int _CurrentLedTemperatureCelsius;
+		public int CurrentLedTemperatureCelsius
+		{
+			get
+			{
+				return this._CurrentLedTemperatureCelsius;
+			}
+			set
+			{
+				this._CurrentLedTemperatureCelsius = value;
+				CurrentLedTemperatureCelsiusFeedback.FireUpdate();
+			}
+		}
 
-		public IntFeedback CurrentTemperatureFeedback;
+		private int _CurrentLedTemperatureFahrenheit;
+		public int CurrentLedTemperatureFahrenheit
+		{
+			get
+			{
+				return this._CurrentLedTemperatureFahrenheit;
+			}
+			set
+			{
+				this._CurrentLedTemperatureFahrenheit = value;
+				CurrentLedTemperatureFahrenheitFeedback.FireUpdate();
+			}
+		}
+
 
 		#region Command Constants
 		/// <summary>
@@ -503,7 +529,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			VolumeLevelFeedback = new IntFeedback(() => { return _VolumeLevelForSig; });
 			MuteFeedback = new BoolFeedback(() => _IsMuted);
 			InputNumberFeedback = new IntFeedback(() => { Debug.Console(2, this, "Change Input number {0}", _InputNumber); return _InputNumber; });
-			CurrentTemperatureFeedback = new IntFeedback(() => { Debug.Console(2, this, "Current Temperature {0}", _CurrentTemperature); return _CurrentTemperature; });
+			CurrentLedTemperatureCelsiusFeedback = new IntFeedback(() => { Debug.Console(2, this, "Current Temperature Celsius {0}", _CurrentLedTemperatureCelsius); return _CurrentLedTemperatureCelsius; });
+			CurrentLedTemperatureFahrenheitFeedback = new IntFeedback(() => { Debug.Console(2, this, "Current Temperature Fahrenheit {0}", _CurrentLedTemperatureFahrenheit); return _CurrentLedTemperatureFahrenheit; });
 		}
 
 		/// <summary>
@@ -531,7 +558,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
                     VolumeLevelFeedback,
                     MuteFeedback,
                     CurrentInputFeedback,
-					CurrentTemperatureFeedback
+					CurrentLedTemperatureCelsiusFeedback,
+					CurrentLedTemperatureFahrenheitFeedback
 				});
 				return list;
 			}
@@ -552,18 +580,21 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			if (Debug.Level == 2) // This check is here to prevent following string format from building unnecessarily on level 0 or 1
 				Debug.Console(2, this, "Received:{0}", ComTextHelper.GetEscapedText(newBytes));
 
-			// Need to find AA FF and have 
+			// Need to find AA FF and have f
 			for (int i = 0; i < newBytes.Length; i++)
 			{
 				if (newBytes[i] == 0xAA && newBytes[i + 1] == 0xFF)
 				{
 					newBytes = newBytes.Skip(i).ToArray(); // Trim off junk if there's "dirt" in the buffer
+					if (Debug.Level == 2) // This check is here to prevent following string format from building unnecessarily on level 0 or 1
+						Debug.Console(2, this, "newBytes:{0}", ComTextHelper.GetEscapedText(newBytes));
 
 					// parse it
 					// If it's at least got the header, then process it, 
 					while (newBytes.Length > 4 && newBytes[0] == Header && newBytes[1] == 0xFF)
 					{
 						var msgLen = newBytes[3];
+						Debug.Console(2, this, "msgLen:{0}", msgLen);
 						// if the buffer is shorter than the header (3) + message (msgLen) + checksum (1),
 						// give and save it for next time 
 						if (newBytes.Length < msgLen + 4)
@@ -571,6 +602,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 
 						// Good length, grab the message
 						var message = newBytes.Skip(4).Take(msgLen).ToArray();
+						if(Debug.Level == 2) // This check is here to prevent following string format from building unnecessarily on level 0 or 1
+							Debug.Console(2, this, "Messgae:{0}", ComTextHelper.GetEscapedText(message));
 
 						// At this point, the ack/nak is the first byte
 						if (message[0] == 0x41)
@@ -617,6 +650,12 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 										UpdateInputFb(message[2]);
 										break;
 									}
+								// LED product monitor
+								case LedProductMonitoringCmd:
+									{
+										UpdateLedTemperatureFb(message[5]);
+										break;
+									}
 								default:
 									{
 										break;
@@ -625,6 +664,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 						}
 						// Skip over what we've used and save the rest for next time
 						newBytes = newBytes.Skip(5 + msgLen).ToArray();
+						if (Debug.Level == 2) // This check is here to prevent following string format from building unnecessarily on level 0 or 1
+							Debug.Console(2, this, "newBytes(loop):{0}", ComTextHelper.GetEscapedText(newBytes));
 					}
 					break; // parsing will mean we can stop looking for header in loop
 				}
@@ -632,6 +673,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 
 			// Save whatever partial message is here
 			IncomingBuffer = newBytes;
+			if (Debug.Level == 2) // This check is here to prevent following string format from building unnecessarily on level 0 or 1
+				Debug.Console(2, this, "IncomingBuffer:{0}", ComTextHelper.GetEscapedText(IncomingBuffer));
 		}
 
 		/// <summary>
@@ -962,7 +1005,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			SendBytes(new byte[] { Header, InputControlCmd, 0x00, 0x00, 0x00 });
             
             if (PollRing != null) PollRing = null;
-            PollRing = new CTimer(o => VolumeGet(), null, 1000);
+            //PollRing = new CTimer(o => VolumeGet(), null, 1000);
+			PollRing = new CTimer(o => LedProductMonitorGet(), null, 1000);
             
 		}
 
@@ -975,6 +1019,42 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			SendBytes(new byte[] { Header, TemerpatureMaxControlCmd, 0x00, 0x00, 0x00 });
 		}
 
+		/// <summary>
+		/// LED Product (Cmd: 0xD0) pdf page 221
+		/// LED Product temperature (subcmd: 0x84) pdf page 228
+		/// Get: [HHEADER=0xAA][Cmd=0xD0][ID][DATA_LEN=0x01][SUBCMD=0x84][CS=0x00]
+		/// </summary>
+		public void LedProductMonitorGet()
+		{
+			SendBytes(new byte[] { Header, LedProductCmd, 0x00, 0x01, LedProductMonitoringCmd, 0x00 });
+		}
+
+		/// <summary>
+		/// Current LED Product Monitor Temperature feedback
+		/// </summary>
+		void UpdateLedTemperatureFb(byte b)
+		{
+			if (b == null) return;
+
+			// Temperature: 0-254 (Celsius)
+			int temp = Convert.ToInt16(b);
+
+			// scaler if needed
+			//int tempScaled = (int)NumericalHelpers.Scale(temp, 0, 65535, 0, 254);
+
+			CurrentLedTemperatureCelsius = temp;
+			CurrentLedTemperatureFahrenheit = (int)ConvertCelsiusToFahrenheit(temp);
+		}
+
+		double ConvertCelsiusToFahrenheit(double c)
+		{
+			return ((9.0 / 5.0) * c) + 32;
+		}
+
+		double ConvertFahrenehitToCelsius(double f)
+		{
+			return (5.0 / 9.0) * (f - 32);
+		}
 
 		/// <summary>
 		/// Executes a switch, turning on display if necessary.

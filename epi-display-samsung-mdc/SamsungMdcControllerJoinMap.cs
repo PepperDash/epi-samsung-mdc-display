@@ -74,6 +74,14 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		/// Analog join to report current max temp feedback
 		/// </summary>
 		public uint TemperatureMaxFb { get; set; }
+		/// <summary>
+		/// Analog join to report LED product monitor temperature feedback
+		/// </summary>
+		public uint LedTemperatureCelsius { get; set; }
+		/// <summary>
+		/// Analog join to report LED product monitor temperature feedback
+		/// </summary>
+		public uint LedTemperatureFahrenheit { get; set; }
         #endregion
 
         #region Serials
@@ -118,12 +126,9 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			// Serial offsets (joinStart+offset)
 			InputNamesOffset = 10;
 
-			// Specific updates
-			// Digital
-			TemperatureMax = 20;
-
 			// Analog
-			TemperatureMaxFb = 20;
+			LedTemperatureCelsius = 21;
+			LedTemperatureFahrenheit = 22;
         }
 
 		/// <summary>
@@ -147,8 +152,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
             InputSelect += joinStart - 1;
             Name += joinStart - 1;
             InputNamesOffset += joinStart - 1;
-            TemperatureMax += joinStart - 1;
-            TemperatureMaxFb += joinStart - 1;
-		}		
+            LedTemperatureCelsius += joinStart - 1;
+			LedTemperatureFahrenheit += joinStart - 1;
+		}
 	}
 }

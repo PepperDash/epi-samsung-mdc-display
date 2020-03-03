@@ -37,16 +37,7 @@
 					"control": {
 						"method": "tcpIp",
 						"controlPortDevKey": "tcpIp-1",
-						"controlPortNumber": 1,
-						"comParams": {							
-							"parity": "Odd",
-							"protocol": "RS232",
-							"baudRate": 38400,
-							"dataBits": 8,
-							"hardwareHandshake": "None",
-							"softwareHandshake": "None",
-							"stopBits": 1
-						},
+						"controlPortNumber": 1,						
 						"tcpSshProperties": {
 							"address": "10.0.0.200",
 							"port": 502,
@@ -76,11 +67,11 @@
 					"devices": [
 						{
 							"deviceKey": "modbusTcp-1",
-							"joinStart": 31
+							"joinStart": 11
 						}
 					]
 				}
-			}
+			},
       {
         "key": "Display01",
         "uid": 3,

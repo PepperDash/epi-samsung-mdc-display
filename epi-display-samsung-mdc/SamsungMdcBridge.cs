@@ -48,8 +48,16 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 				commMonitor.CommunicationMonitor.IsOnlineFeedback.LinkInputSig(trilist.BooleanInput[joinMap.IsOnline]);
 			}
 
+			// input analog feedback
 			displayDevice.InputNumberFeedback.LinkInputSig(trilist.UShortInput[joinMap.InputSelect]);
 			Debug.Console(2, displayDevice, "Setting Input Number Feedback on Analog Join {0}", joinMap.InputSelect);
+			
+			// led temperature analog feedback 
+			displayDevice.CurrentLedTemperatureCelsiusFeedback.LinkInputSig(trilist.UShortInput[joinMap.LedTemperatureCelsius]);
+			Debug.Console(2, displayDevice, "Setting LED Temperature Celsius Feedback on Analog Join {0}", joinMap.LedTemperatureCelsius);
+
+			displayDevice.CurrentLedTemperatureCelsiusFeedback.LinkInputSig(trilist.UShortInput[joinMap.LedTemperatureCelsius]);
+			Debug.Console(2, displayDevice, "Setting LED Temperature Fahrenheit Feedback on Analog Join {0}", joinMap.LedTemperatureFahrenheit);
 
 			// Two way feedbacks
 			var twoWayDisplay = displayDevice as PepperDash.Essentials.Core.TwoWayDisplayBase;
