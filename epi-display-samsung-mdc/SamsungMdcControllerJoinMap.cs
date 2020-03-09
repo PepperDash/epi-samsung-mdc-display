@@ -157,6 +157,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
             InputNamesOffset += joinStart - 1;
             LedTemperatureCelsius += joinStart - 1;
 			LedTemperatureFahrenheit += joinStart - 1;
+		    Status += joinStart - 1;
 		}
 	}
 }

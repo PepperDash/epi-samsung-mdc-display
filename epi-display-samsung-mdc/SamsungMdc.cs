@@ -485,7 +485,11 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 
 		    StatusFeedback = new IntFeedback(() => (int) CommunicationMonitor.Status);
 
-		    CommunicationMonitor.StatusChange += (sender, args) => StatusFeedback.FireUpdate();
+		    CommunicationMonitor.StatusChange += (sender, args) =>
+		    {
+		        Debug.Console(2, this, "Device status: {0}", CommunicationMonitor.Status);
+		        StatusFeedback.FireUpdate();
+		    };
 
             if (!ScaleVolume)
             {

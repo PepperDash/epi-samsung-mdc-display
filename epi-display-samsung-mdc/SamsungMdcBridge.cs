@@ -25,7 +25,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			//IntFeedback inputNumberFeedback;
 			//List<string> inputKeys = new List<string>();
 
-			DisplayControllerJoinMap joinMap = new DisplayControllerJoinMap();
+			var joinMap = new DisplayControllerJoinMap();
 
 			var joinMapSerialized = JoinMapHelper.GetJoinMapForDevice(joinMapKey);
 
@@ -40,11 +40,13 @@ namespace PepperDash.Plugin.Display.SamsungMdc
             Debug.Console(2, "I'm starting at Join: {0}", joinMap.Name);
 			
 			trilist.StringInput[joinMap.Name].StringValue = displayDevice.Name;
-			Debug.Console(2, displayDevice, "Setting Name Feedback on Seerial Join {0}", joinMap.Name);
+			Debug.Console(2, displayDevice, "Setting Name Feedback on Serial Join {0}", joinMap.Name);
 
 			var commMonitor = displayDevice as ICommunicationMonitor;
 
 		    commMonitor.CommunicationMonitor.IsOnlineFeedback.LinkInputSig(trilist.BooleanInput[joinMap.IsOnline]);
+
+		    Debug.Console(2, displayDevice, "Setting Status feedback on Analog Join {0}", joinMap.Status);
 		    displayDevice.StatusFeedback.LinkInputSig(trilist.UShortInput[joinMap.Status]);
 
 		    // input analog feedback
@@ -68,33 +70,28 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			}
 
 			// Power Off
-			trilist.SetSigTrueAction(joinMap.PowerOff, () =>
-				{
-					displayDevice.PowerOff();
-				});
+			trilist.SetSigTrueAction(joinMap.PowerOff, displayDevice.PowerOff);
 			displayDevice.PowerIsOnFeedback.OutputChange += PowerIsOnFeedback_OutputChange;
 			displayDevice.PowerIsOnFeedback.LinkComplementInputSig(trilist.BooleanInput[joinMap.PowerOff]);
 			Debug.Console(2, displayDevice, "Setting PowerOff Control & Feedback on Digital Join {0}", joinMap.PowerOff);
 
 			// PowerOn
-			trilist.SetSigTrueAction(joinMap.PowerOn, () =>
-				{
-					displayDevice.PowerOn();
-				});
+			trilist.SetSigTrueAction(joinMap.PowerOn, displayDevice.PowerOn);
 			displayDevice.PowerIsOnFeedback.LinkInputSig(trilist.BooleanInput[joinMap.PowerOn]);
 			Debug.Console(2, displayDevice, "Setting PowerOn Control & Feedback on Digital Join {0}", joinMap.PowerOn);
 
 			// Input digitals
-			int count = 1;
-			var displayBase = displayDevice as DisplayBase;
+			var count = 1;
 
-			foreach (var input in displayDevice.InputPorts)
+		    foreach (var input in displayDevice.InputPorts)
 			{
 				var i = input;
-				trilist.SetSigTrueAction((ushort)(joinMap.InputSelectOffset + count), () => { displayDevice.ExecuteSwitch(displayDevice.InputPorts[i.Key.ToString()].Selector); });
-				Debug.Console(2, displayDevice, "Setting Input Press Select Action on Digital Join {0} to Input: {1}", joinMap.InputSelectOffset + count, displayDevice.InputPorts[i.Key.ToString()].Key.ToString());
-				trilist.StringInput[(ushort)(joinMap.InputNamesOffset + count)].StringValue = i.Key.ToString();
-                displayDevice.InputFeedback[count].LinkInputSig(trilist.BooleanInput[joinMap.InputSelectOffset + (uint)count]);
+				trilist.SetSigTrueAction((ushort)(joinMap.InputSelectOffset + count), () => displayDevice.ExecuteSwitch(displayDevice.InputPorts[i.Key].Selector));
+
+				Debug.Console(2, displayDevice, "Setting Input Press Select Action on Digital Join {0} to Input: {1}", joinMap.InputSelectOffset + count, displayDevice.InputPorts[i.Key].Key);
+				trilist.StringInput[(ushort)(joinMap.InputNamesOffset + count)].StringValue = i.Key;
+
+                displayDevice.InputFeedback[count - 1].LinkInputSig(trilist.BooleanInput[joinMap.InputSelectOffset + (uint)count]);
                 count++;
 			}
 
