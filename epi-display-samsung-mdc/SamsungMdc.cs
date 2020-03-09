@@ -9,7 +9,7 @@ using PepperDash.Essentials.Core;
 using PepperDash.Essentials.Core.Config;
 using PepperDash.Essentials.Core.Routing;
 using PepperDash.Essentials.Bridges;
-using Newtonsoft.Json;
+using Feedback = PepperDash.Essentials.Core.Feedback;
 
 namespace PepperDash.Plugin.Display.SamsungMdc
 {
@@ -20,14 +20,14 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 
 		public static void LoadPlugin()
 		{
-			PepperDash.Essentials.Core.DeviceFactory.AddFactoryForType("samsungmdcplugin", PdtSamsungMdcDisplay.BuildDevice);
+			DeviceFactory.AddFactoryForType("samsungmdcplugin", BuildDevice);
 		}
 
 		public static string MinimumEssentialsFrameworkVersion = "1.4.32";
 
 		public static PdtSamsungMdcDisplay BuildDevice(DeviceConfig dc)
 		{
-			var config = JsonConvert.DeserializeObject<DeviceConfig>(dc.Properties.ToString());
+			//var config = JsonConvert.DeserializeObject<DeviceConfig>(dc.Properties.ToString());
 			var newMe = new PdtSamsungMdcDisplay(dc);
 			return newMe;
 		}
@@ -35,81 +35,84 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		public IBasicCommunication Communication { get; private set; }
 		public StatusMonitorBase CommunicationMonitor { get; private set; }
 
-		public byte ID { get; private set; }
+		public byte Id { get; private set; }
 
-		bool LastCommandSentWasVolume;
+		bool _lastCommandSentWasVolume;
 
-		bool _PowerIsOn;
-		bool _IsWarmingUp;
-		bool _IsCoolingDown;
-		ushort _VolumeLevelForSig;
-		int _LastVolumeSent;
-		bool _IsMuted;		
-		RoutingInputPort _CurrentInputPort;
-		byte[] IncomingBuffer = new byte[] { };
-		ActionIncrementer VolumeIncrementer;
-		bool VolumeIsRamping;
-		public bool IsInStandby { get; private set; }
-		bool IsPoweringOnIgnorePowerFb;
-        private int LowerLimit { get; set; }
-        private int UpperLimit { get; set; }
-        private uint CoolingTimeMs { get; set; }
-        private uint WarmingTimeMs { get; set; }
-        private long PollIntervalMs { get; set; }
+		bool _powerIsOn;
+		bool _isWarmingUp;
+		bool _isCoolingDown;
+		ushort _volumeLevelForSig;
+		int _lastVolumeSent;
+		bool _isMuted;		
+		RoutingInputPort _currentInputPort;
+		byte[] _incomingBuffer = { };
+		ActionIncrementer _volumeIncrementer;
+		bool _volumeIsRamping;
+
+		bool _isPoweringOnIgnorePowerFb;
+
+	    private readonly int _lowerLimit;
+	    private readonly int _upperLimit;
+	    private readonly uint _coolingTimeMs;
+	    private readonly uint _warmingTimeMs;
+	    private readonly long _pollIntervalMs;
 
 
-        CTimer PollRing;
+        private CTimer _pollRing;
+
+	    public IntFeedback StatusFeedback { get; set; }
 
         public List<BoolFeedback> InputFeedback;
-        public List<bool> _InputFeedback;
 		public IntFeedback InputNumberFeedback;
 		public static List<string> InputKeys = new List<string>();
+
 		public const int InputPowerOn = 101;
 		
         public const int InputPowerOff = 102;
-		private int _InputNumber;
+
+		private int _inputNumber;
 		public int InputNumber
 		{
 			get
 			{
-				return this._InputNumber;
+				return _inputNumber;
 			}
 			set
 			{
-				this._InputNumber = value;
-				InputNumberFeedback.FireUpdate();
-                UpdateBooleanFeedback(value);
+                ExecuteSwitch(InputPorts.ElementAt(value).Selector);
 			}
 		}
+
         private bool ScaleVolume { get; set; }
 		
 		public IntFeedback CurrentLedTemperatureCelsiusFeedback;
 		public IntFeedback CurrentLedTemperatureFahrenheitFeedback;
 
-		private int _CurrentLedTemperatureCelsius;
+		private int _currentLedTemperatureCelsius;
 		public int CurrentLedTemperatureCelsius
 		{
 			get
 			{
-				return this._CurrentLedTemperatureCelsius;
+				return _currentLedTemperatureCelsius;
 			}
 			set
 			{
-				this._CurrentLedTemperatureCelsius = value;
+				_currentLedTemperatureCelsius = value;
 				CurrentLedTemperatureCelsiusFeedback.FireUpdate();
 			}
 		}
 
-		private int _CurrentLedTemperatureFahrenheit;
+		private int _currentLedTemperatureFahrenheit;
 		public int CurrentLedTemperatureFahrenheit
 		{
 			get
 			{
-				return this._CurrentLedTemperatureFahrenheit;
+				return _currentLedTemperatureFahrenheit;
 			}
 			set
 			{
-				this._CurrentLedTemperatureFahrenheit = value;
+				_currentLedTemperatureFahrenheit = value;
 				CurrentLedTemperatureFahrenheitFeedback.FireUpdate();
 			}
 		}
@@ -267,11 +270,11 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		/// <summary>
 		/// Picture Size control data1 - PC 16x9
 		/// </summary>
-		public const byte AspectControlPc16x9 = 0x10;
+		public const byte AspectControlPc16X9 = 0x10;
 		/// <summary>
 		/// Picture Size control data1 - PC 4x3
 		/// </summary>
-		public const byte AspectControlPc4x3 = 0x18;
+		public const byte AspectControlPc4X3 = 0x18;
 		/// <summary>
 		/// Picture Size control data1 - PC Original
 		/// </summary>
@@ -279,7 +282,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		/// <summary>
 		/// Picture Size control data1 - PC 21x9
 		/// </summary>
-		public const byte AspectControlPc21x9 = 0x21;
+		public const byte AspectControlPc21X9 = 0x21;
 		/// <summary>
 		/// Picture Size control data1 - PC Custom
 		/// </summary>
@@ -291,7 +294,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		/// <summary>
 		/// Picture Size control data1 - Video 16x9
 		/// </summary>
-		public const byte AspectControlVideo16x9 = 0x01;
+		public const byte AspectControlVideo16X9 = 0x01;
 		/// <summary>
 		/// Picture Size control data1 - Video Zoom
 		/// </summary>
@@ -311,7 +314,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		/// <summary>
 		/// Picture Size control data1 - Video 4x3
 		/// </summary>
-		public const byte AspectControlVideo4x3 = 0x0B;
+		public const byte AspectControlVideo4X3 = 0x0B;
 		/// <summary>
 		/// Picture Size control data1 - Video Wide Fit
 		/// </summary>
@@ -335,7 +338,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		/// <summary>
 		/// Picture Size control data1 - Video 21x9
 		/// </summary>
-		public const byte AspectControlVideo21x9 = 0x32;
+		public const byte AspectControlVideo21X9 = 0x32;
 		/// <summary>
 		/// Brightness Control (Cmd: 0x25) pdf page 77
 		/// Gets/sets the brightness level
@@ -399,49 +402,50 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		/// LED Product Features has a subset of commands available
 		/// </summary>
 		public const byte LedProductCmd = 0xD0;
-		/// <summary>
-		/// Monitoring Temperature (Sub Cmd: 0x84) pdf page 228		
-		/// Gets LED Product status, status includes: val1=Power&IC, val2=HDBaseT_Status, val3=Temperature, val4=Illuminance, val5=Module1, val6=Module1_LED_Error_Data,.... valN=ModuleX, valN+1=ModuleX_LED_Error_Data\
-		/// Temperature range 0C-254C
-		/// Illuminance range 0d - 100d (0x00 - 0x64)
-		/// </summary>
+
+		// <summary>
+		// Monitoring Temperature (Sub Cmd: 0x84) pdf page 228		
+		// Gets LED Product status, status includes: val1=Power&IC, val2=HDBaseT_Status, val3=Temperature, val4=Illuminance, val5=Module1, val6=Module1_LED_Error_Data,.... valN=ModuleX, valN+1=ModuleX_LED_Error_Data\
+		// Temperature range 0C-254C
+		// Illuminance range 0d - 100d (0x00 - 0x64)
+		// </summary>
 		public const byte LedProductMonitoringCmd = 0x84;
 		#endregion
 
-		protected override Func<bool> PowerIsOnFeedbackFunc { get { return () => _PowerIsOn; } }
-		protected override Func<bool> IsCoolingDownFeedbackFunc { get { return () => _IsCoolingDown; } }
-		protected override Func<bool> IsWarmingUpFeedbackFunc { get { return () => _IsWarmingUp; } }
-		protected override Func<string> CurrentInputFeedbackFunc { get { return () => _CurrentInputPort.Key; } }
+		protected override Func<bool> PowerIsOnFeedbackFunc { get { return () => _powerIsOn; } }
+		protected override Func<bool> IsCoolingDownFeedbackFunc { get { return () => _isCoolingDown; } }
+		protected override Func<bool> IsWarmingUpFeedbackFunc { get { return () => _isWarmingUp; } }
+		protected override Func<string> CurrentInputFeedbackFunc { get { return () => _currentInputPort.Key; } }
 
-		/// <summary>
-		/// Constructor for IBaseCommunication
-		/// </summary>
-		/// <param name="key"></param>
-		/// <param name="name"></param>
-		/// <param name="config"></param>
-		//public PdtSamsungMdcDisplay(string key, string name, DeviceConfig config) : base(key, name)
+	    /// <summary>
+	    /// Constructor for IBaseCommunication
+	    /// </summary>
+	    /// <param name="config"></param>
+	    //public PdtSamsungMdcDisplay(string key, string name, DeviceConfig config) : base(key, name)
 		public PdtSamsungMdcDisplay(DeviceConfig config)
 			: base(config.Key, config.Name)
 		{
 			Communication = CommFactory.CreateCommForDevice(config);
-            Communication.BytesReceived += new EventHandler<GenericCommMethodReceiveBytesArgs>(Communication_BytesReceived);
+            Communication.BytesReceived += Communication_BytesReceived;
 			var props = config.Properties.ToObject<SamsungMDCDisplayPropertiesConfig>();
 
-            if (props == null || props.Id == null)
-            {
-                ID = (byte)0x01;
-            }
-            else
-            {
-                ID = Convert.ToByte(props.Id, 16);
-            }
-            UpperLimit = props.volumeUpperLimit;
-            LowerLimit = props.volumeLowerLimit;
-            PollIntervalMs = props.pollIntervalMs;
-            CoolingTimeMs = props.coolingTimeMs;
-            WarmingTimeMs = props.warmingTimeMs;
+	        if (props == null)
+	        {
+                Debug.LogError(Debug.ErrorLogLevel.Error, "No properties object found in Device Configuration");
+	            return;
+	        }
 
-			Init();
+            Id = props.Id == null ? (byte) 0x01 : Convert.ToByte(props.Id, 16);
+
+	        
+	            _upperLimit = props.volumeUpperLimit;
+	            _lowerLimit = props.volumeLowerLimit;
+	            _pollIntervalMs = props.pollIntervalMs;
+	            _coolingTimeMs = props.coolingTimeMs;
+	            _warmingTimeMs = props.warmingTimeMs;
+	      
+
+	        Init();
 		}		
 
 		/// <summary>
@@ -460,39 +464,43 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		/// </summary>
 		void Init()
 		{
-            WarmupTime = WarmingTimeMs > 0 ? WarmingTimeMs : 10000;
-            CooldownTime = CoolingTimeMs > 0 ? CoolingTimeMs : 8000;
+            WarmupTime = _warmingTimeMs > 0 ? _warmingTimeMs : 10000;
+            CooldownTime = _coolingTimeMs > 0 ? _coolingTimeMs : 8000;
 
-            _InputFeedback = new List<bool>();
+            //_InputFeedback = new List<bool>();
             InputFeedback = new List<BoolFeedback>();
 
-            if (UpperLimit != LowerLimit)
+            if (_upperLimit != _lowerLimit)
             {
-                if (UpperLimit > LowerLimit)
+                if (_upperLimit > _lowerLimit)
                 {
                     ScaleVolume = true;
                 }
             }
 
 			//TODO: determine your poll rate the first value in teh GenericCommunicationMonitor, currently 45s (45,000)
-            var PollInterval = PollIntervalMs > 0 ? PollIntervalMs : 10000;
-            CommunicationMonitor = new GenericCommunicationMonitor(this, Communication, PollInterval, 180000, 300000, StatusGet);
+            var pollInterval = _pollIntervalMs > 0 ? _pollIntervalMs : 10000;
+            CommunicationMonitor = new GenericCommunicationMonitor(this, Communication, pollInterval, 180000, 300000, StatusGet);
 			DeviceManager.AddDevice(CommunicationMonitor);
+
+		    StatusFeedback = new IntFeedback(() => (int) CommunicationMonitor.Status);
+
+		    CommunicationMonitor.StatusChange += (sender, args) => StatusFeedback.FireUpdate();
 
             if (!ScaleVolume)
             {
-                VolumeIncrementer = new ActionIncrementer(655, 0, 65535, 800, 80,
+                _volumeIncrementer = new ActionIncrementer(655, 0, 65535, 800, 80,
                     v => SetVolume((ushort)v),
-                    () => _LastVolumeSent);
+                    () => _lastVolumeSent);
             }
             else
             {
-                var ScaleUpper = NumericalHelpers.Scale((double)UpperLimit, 0, 100, 0, 65535);
-                var ScaleLower = NumericalHelpers.Scale((double)LowerLimit, 0, 100, 0, 65535);
+                var scaleUpper = NumericalHelpers.Scale(_upperLimit, 0, 100, 0, 65535);
+                var scaleLower = NumericalHelpers.Scale(_lowerLimit, 0, 100, 0, 65535);
 
-                VolumeIncrementer = new ActionIncrementer(655, (int)ScaleLower, (int)ScaleUpper, 800, 80,
+                _volumeIncrementer = new ActionIncrementer(655, (int)scaleLower, (int)scaleUpper, 800, 80,
                     v => SetVolume((ushort)v),
-                    () => _LastVolumeSent);
+                    () => _lastVolumeSent);
             }
 
 			AddRoutingInputPort(new RoutingInputPort(RoutingPortNames.HdmiIn1, eRoutingSignalType.Audio | eRoutingSignalType.Video,
@@ -517,20 +525,20 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 				eRoutingPortConnectionType.Dvi, new Action(InputDvi1), this), InputControlDvi1);
 
             
-            for (int i = 0; i < InputPorts.Count + 1; i++)
+            for (var i = 0; i < InputPorts.Count; i++)
             {
-                int j = i;
-                _InputFeedback.Add(false);
-                InputFeedback.Add(new BoolFeedback(() => _InputFeedback[j]));
+                var j = i;
+     
+                InputFeedback.Add(new BoolFeedback(() => _inputNumber == j + 1));
             }
 
 			StatusGet();
 
-			VolumeLevelFeedback = new IntFeedback(() => { return _VolumeLevelForSig; });
-			MuteFeedback = new BoolFeedback(() => _IsMuted);
-			InputNumberFeedback = new IntFeedback(() => { Debug.Console(2, this, "Change Input number {0}", _InputNumber); return _InputNumber; });
-			CurrentLedTemperatureCelsiusFeedback = new IntFeedback(() => { Debug.Console(2, this, "Current Temperature Celsius {0}", _CurrentLedTemperatureCelsius); return _CurrentLedTemperatureCelsius; });
-			CurrentLedTemperatureFahrenheitFeedback = new IntFeedback(() => { Debug.Console(2, this, "Current Temperature Fahrenheit {0}", _CurrentLedTemperatureFahrenheit); return _CurrentLedTemperatureFahrenheit; });
+			VolumeLevelFeedback = new IntFeedback(() => _volumeLevelForSig);
+			MuteFeedback = new BoolFeedback(() => _isMuted);
+			InputNumberFeedback = new IntFeedback(() => { Debug.Console(2, this, "Change Input number {0}", _inputNumber); return _inputNumber; });
+			CurrentLedTemperatureCelsiusFeedback = new IntFeedback(() => { Debug.Console(2, this, "Current Temperature Celsius {0}", _currentLedTemperatureCelsius); return _currentLedTemperatureCelsius; });
+			CurrentLedTemperatureFahrenheitFeedback = new IntFeedback(() => { Debug.Console(2, this, "Current Temperature Fahrenheit {0}", _currentLedTemperatureFahrenheit); return _currentLedTemperatureFahrenheit; });
 		}
 
 		/// <summary>
@@ -540,7 +548,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		public override bool CustomActivate()
 		{
 			Communication.Connect();
-			CommunicationMonitor.StatusChange += (o, a) => { Debug.Console(2, this, "Communication monitor state: {0}", CommunicationMonitor.Status); };
+			CommunicationMonitor.StatusChange += (o, a) => Debug.Console(2, this, "Communication monitor state: {0}", CommunicationMonitor.Status);
 			CommunicationMonitor.Start();
 			return true;
 		}
@@ -548,12 +556,12 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		/// <summary>
 		/// 
 		/// </summary>
-		public override FeedbackCollection<PepperDash.Essentials.Core.Feedback> Feedbacks
+		public override FeedbackCollection<Feedback> Feedbacks
 		{
 			get
 			{
 				var list = base.Feedbacks;
-				list.AddRange(new List<PepperDash.Essentials.Core.Feedback>
+				list.AddRange(new List<Feedback>
 				{
                     VolumeLevelFeedback,
                     MuteFeedback,
@@ -565,17 +573,18 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			}
 		}
 
-		/// <summary>
-		/// Communication bytes recieved
-		/// </summary>
-		/// <param name="sender"></param>
-		void Communication_BytesReceived(object sender, GenericCommMethodReceiveBytesArgs e)       
+	    /// <summary>
+	    /// Communication bytes recieved
+	    /// </summary>
+	    /// <param name="sender"></param>
+	    /// <param name="e">Event args</param>
+	    private void Communication_BytesReceived(object sender, GenericCommMethodReceiveBytesArgs e)       
         {
 			// This is probably not thread-safe buffering
 			// Append the incoming bytes with whatever is in the buffer
-			var newBytes = new byte[IncomingBuffer.Length + e.Bytes.Length];
-			IncomingBuffer.CopyTo(newBytes, 0);
-			e.Bytes.CopyTo(newBytes, IncomingBuffer.Length);
+			var newBytes = new byte[_incomingBuffer.Length + e.Bytes.Length];
+			_incomingBuffer.CopyTo(newBytes, 0);
+			e.Bytes.CopyTo(newBytes, _incomingBuffer.Length);
 
 			if (Debug.Level == 2) // This check is here to prevent following string format from building unnecessarily on level 0 or 1
 				Debug.Console(2, this, "Received:{0}", ComTextHelper.GetEscapedText(newBytes));
@@ -616,12 +625,12 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 									{
 										//UpdatePowerFB(message[2], message[5]); // "power" can be misrepresented when the display sleeps
 										// Handle the first power on fb when waiting for it.
-										if (IsPoweringOnIgnorePowerFb && message[2] == PowerControlOn)
-											IsPoweringOnIgnorePowerFb = false;
+										if (_isPoweringOnIgnorePowerFb && message[2] == PowerControlOn)
+											_isPoweringOnIgnorePowerFb = false;
 										// Ignore general-status power off messages when powering up
-										if (!(IsPoweringOnIgnorePowerFb && message[2] == PowerControlOff))
-											UpdatePowerFB(message[2]);
-										UpdateVolumeFB(message[3]);
+										if (!(_isPoweringOnIgnorePowerFb && message[2] == PowerControlOff))
+											UpdatePowerFb(message[2]);
+										UpdateVolumeFb(message[3]);
 										UpdateMuteFb(message[4]);
 										UpdateInputFb(message[5]);
 										break;
@@ -629,13 +638,13 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 								// Power status
 								case PowerControlCmd:
 									{
-										UpdatePowerFB(message[2]);
+										UpdatePowerFb(message[2]);
 										break;
 									}
 								// Volume level
 								case VolumeLevelControlCmd:
 									{
-										UpdateVolumeFB(message[2]);
+										UpdateVolumeFb(message[2]);
 										break;
 									}
 								// Volume mute status
@@ -672,64 +681,42 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			}
 
 			// Save whatever partial message is here
-			IncomingBuffer = newBytes;
+			_incomingBuffer = newBytes;
 			if (Debug.Level == 2) // This check is here to prevent following string format from building unnecessarily on level 0 or 1
-				Debug.Console(2, this, "IncomingBuffer:{0}", ComTextHelper.GetEscapedText(IncomingBuffer));
+				Debug.Console(2, this, "IncomingBuffer:{0}", ComTextHelper.GetEscapedText(_incomingBuffer));
 		}
 
 		/// <summary>
 		/// Power feedback
 		/// </summary>
-		void UpdatePowerFB(byte powerByte)
+		void UpdatePowerFb(byte powerByte)
 		{
 			var newVal = powerByte == 1;
-			if (newVal != _PowerIsOn)
-			{
-				_PowerIsOn = newVal;
-				PowerIsOnFeedback.FireUpdate();
-			}
+		    if (newVal == _powerIsOn) return;
+		    _powerIsOn = newVal;
+		    PowerIsOnFeedback.FireUpdate();
 		}
 
-		/// <summary>
-		/// Updates power status from general updates where source is included.
-		/// Compensates for errant standby / power off hiccups by ignoring 
-		/// power off states with input < 0x10 
-		/// </summary>
-		void UpdatePowerFB(byte powerByte, byte inputByte)
+	    // <summary>
+		// Volume feedback
+		// </summary>
+		void UpdateVolumeFb(byte b)
 		{
-			// This should reject errant power feedbacks when switching away from input on standby.
-			if (powerByte == 0x01 && inputByte < 0x10)
-				IsInStandby = true;
-			if (powerByte == 0x00 && IsInStandby) // Ignore power off if coming from standby - glitch
-			{
-				IsInStandby = false;
-				return;
-			}
-
-			UpdatePowerFB(powerByte);
-		}
-
-		/// <summary>
-		/// Volume feedback
-		/// </summary>
-		void UpdateVolumeFB(byte b)
-		{
-            ushort newVol = 0;
+            ushort newVol;
             if (!ScaleVolume)
             {
-                newVol = (ushort)NumericalHelpers.Scale((double)b, 0, 100, 0, 65535);
+                newVol = (ushort)NumericalHelpers.Scale(b, 0, 100, 0, 65535);
             }
             else
             {
-                newVol = (ushort)NumericalHelpers.Scale((double)b, LowerLimit, UpperLimit, 0, 65535); 
+                newVol = (ushort)NumericalHelpers.Scale(b, _lowerLimit, _upperLimit, 0, 65535); 
             }
-			if (!VolumeIsRamping)
-				_LastVolumeSent = newVol;
-			if (newVol != _VolumeLevelForSig)
-			{
-				_VolumeLevelForSig = newVol;
-				VolumeLevelFeedback.FireUpdate();
-			}
+			if (!_volumeIsRamping)
+				_lastVolumeSent = newVol;
+
+		    if (newVol == _volumeLevelForSig) return;
+		    _volumeLevelForSig = newVol;
+		    VolumeLevelFeedback.FireUpdate();
 		}
 
 		/// <summary>
@@ -738,11 +725,10 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		void UpdateMuteFb(byte b)
 		{
 			var newMute = b == 1;
-			if (newMute != _IsMuted)
-			{
-				_IsMuted = newMute;
-				MuteFeedback.FireUpdate();
-			}
+
+		    if (newMute == _isMuted) return;
+		    _isMuted = newMute;
+		    MuteFeedback.FireUpdate();
 		}
 
 		/// <summary>
@@ -751,38 +737,39 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		void UpdateInputFb(byte b)
 		{
 			var newInput = InputPorts.FirstOrDefault(i => i.FeedbackMatchObject.Equals(b));
-			if (newInput != null && newInput != _CurrentInputPort)
+			if (newInput != null && newInput != _currentInputPort)
 			{
-				_CurrentInputPort = newInput;
+				_currentInputPort = newInput;
 				CurrentInputFeedback.FireUpdate();
                 var key = newInput.Key;
                 switch (key)
                 {
                     case "hdmiIn1":
-                        InputNumber = 1;
+                        _inputNumber = 1;
                         break;
                     case "hdmiIn2" :
-                        InputNumber = 2;
+                        _inputNumber = 2;
                         break;
                     case "hdmiIn3" :
-                        InputNumber = 3;
+                        _inputNumber = 3;
                         break;
                     case "hdmiIn4" :
-                        InputNumber = 4;
+                        _inputNumber = 4;
                         break;
                     case "displayPortIn1" :
-                        InputNumber = 5;
+                        _inputNumber = 5;
                         break;
                     case "displayPortIn2" :
-                        InputNumber = 6;
+                        _inputNumber = 6;
                         break;
                     case "dviIn" :
-                        InputNumber = 7;
-                        break;
-                    default:
+                        _inputNumber = 7;
                         break;
                 }
 			}
+
+            InputNumberFeedback.FireUpdate();
+            UpdateBooleanFeedback();
 		}
 
 		/// <summary>
@@ -798,11 +785,11 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			// Command structure 
 			// [HEADER][CMD][ID][DATA_LEN][DATA-1]....[DATA-N][CHK_SUM]
 			// PowerOn ex: 0xAA,0x11,0x01,0x01,0x01,0x01
-			if (LastCommandSentWasVolume)   // If the last command sent was volume
+			if (_lastCommandSentWasVolume)   // If the last command sent was volume
 				if (b[1] != 0x12)           // Check if this command is volume, and if not, delay this command 
 					CrestronEnvironment.Sleep(100);
 
-			b[2] = ID;
+			b[2] = Id;
 			// append checksum by adding all bytes, except last which should be 00
 			int checksum = 0;
 			for (var i = 1; i < b.Length - 1; i++) // add 2nd through 2nd-to-last bytes
@@ -814,10 +801,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			if (Debug.Level == 2) // This check is here to prevent following string format from building unnecessarily on level 0 or 1
 				Debug.Console(2, this, "Sending:{0}", ComTextHelper.GetEscapedText(b));
 
-			if (b[1] == 0x12)
-				LastCommandSentWasVolume = true;
-			else
-				LastCommandSentWasVolume = false;
+			_lastCommandSentWasVolume = b[1] == 0x12;
 
 			Communication.SendBytes(b);
 		}
@@ -831,8 +815,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			//SendBytes(new byte[] { Header, StatusControlCmd, 0x00, 0x00, StatusControlGet, 0x00 });
             
             PowerGet();
-            if (PollRing != null) PollRing = null;
-            PollRing = new CTimer(o => InputGet(), null, 1000);
+            _pollRing = null;
+            _pollRing = new CTimer(o => InputGet(), null, 1000);
             
 		}
 
@@ -842,21 +826,20 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		/// </summary>
 		public override void PowerOn()
 		{
-			IsPoweringOnIgnorePowerFb = true;
+			_isPoweringOnIgnorePowerFb = true;
 			SendBytes(new byte[] { Header, PowerControlCmd, 0x00, 0x01, PowerControlOn, 0x00 });
-			if (!PowerIsOnFeedback.BoolValue && !_IsWarmingUp && !_IsCoolingDown)
-			{
-				_IsWarmingUp = true;
-				IsWarmingUpFeedback.FireUpdate();
-				// Fake power-up cycle
-				WarmupTimer = new CTimer(o =>
-					{
-						_IsWarmingUp = false;
-						_PowerIsOn = true;
-						IsWarmingUpFeedback.FireUpdate();
-						PowerIsOnFeedback.FireUpdate();
-					}, WarmupTime);
-			}
+
+		    if (PowerIsOnFeedback.BoolValue || _isWarmingUp || _isCoolingDown) return;
+		    _isWarmingUp = true;
+		    IsWarmingUpFeedback.FireUpdate();
+		    // Fake power-up cycle
+		    WarmupTimer = new CTimer(o =>
+		    {
+		        _isWarmingUp = false;
+		        _powerIsOn = true;
+		        IsWarmingUpFeedback.FireUpdate();
+		        PowerIsOnFeedback.FireUpdate();
+		    }, WarmupTime);
 		}
 
 		/// <summary>
@@ -865,43 +848,33 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		/// </summary>
 		public override void PowerOff()
 		{
-			IsPoweringOnIgnorePowerFb = false;
+			_isPoweringOnIgnorePowerFb = false;
 			// If a display has unreliable-power off feedback, just override this and
 			// remove this check.
-			if (!_IsWarmingUp && !_IsCoolingDown) // PowerIsOnFeedback.BoolValue &&
+			if (!_isWarmingUp && !_isCoolingDown) // PowerIsOnFeedback.BoolValue &&
 			{
 				SendBytes(new byte[] { Header, PowerControlCmd, 0x00, 0x01, PowerControlOff, 0x00 });
-				_IsCoolingDown = true;
-				_PowerIsOn = false;
+				_isCoolingDown = true;
+				_powerIsOn = false;
 				PowerIsOnFeedback.FireUpdate();
 				IsCoolingDownFeedback.FireUpdate();
 				// Fake cool-down cycle
 				CooldownTimer = new CTimer(o =>
 					{
-						_IsCoolingDown = false;
+						_isCoolingDown = false;
 						IsCoolingDownFeedback.FireUpdate();
 					}, CooldownTime);
 			}
 		}
 
         
-        private void UpdateBooleanFeedback(int data)
+        private void UpdateBooleanFeedback()
         {
             try
             {
-                if (_InputFeedback[data] == true)
-                    return;
-                else
+                foreach (var item in InputFeedback)
                 {
-                    for (int i = 1; i < InputPorts.Count + 1; i++)
-                    {
-                        _InputFeedback[i] = false;
-                    }
-                    _InputFeedback[data] = true;
-                    foreach (var item in InputFeedback)
-                    {
-                        item.FireUpdate();
-                    }
+                    item.FireUpdate();
                 }
             }
             catch (Exception e)
@@ -1004,9 +977,9 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		{
 			SendBytes(new byte[] { Header, InputControlCmd, 0x00, 0x00, 0x00 });
             
-            if (PollRing != null) PollRing = null;
+            _pollRing = null;
             //PollRing = new CTimer(o => VolumeGet(), null, 1000);
-			PollRing = new CTimer(o => LedProductMonitorGet(), null, 1000);
+			_pollRing = new CTimer(o => LedProductMonitorGet(), null, 1000);
             
 		}
 
@@ -1034,9 +1007,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		/// </summary>
 		void UpdateLedTemperatureFb(byte b)
 		{
-			if (b == null) return;
-
-			// Temperature: 0-254 (Celsius)
+		    // Temperature: 0-254 (Celsius)
 			int temp = Convert.ToInt16(b);
 
 			// scaler if needed
@@ -1065,19 +1036,22 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			//if (!(selector is Action))
 			//    Debug.Console(1, this, "WARNING: ExecuteSwitch cannot handle type {0}", selector.GetType());
 
-			if (_PowerIsOn)
-				(selector as Action)();
+			if (_powerIsOn)
+			{
+			    var action = selector as Action;
+			    if (action != null) action();
+			}
 			else // if power is off, wait until we get on FB to send it. 
 			{
 				// One-time event handler to wait for power on before executing switch
 				EventHandler<FeedbackEventArgs> handler = null; // necessary to allow reference inside lambda to handler
 				handler = (o, a) =>
 				{
-					if (!_IsWarmingUp) // Done warming
-					{
-						IsWarmingUpFeedback.OutputChange -= handler;
-						(selector as Action)();
-					}
+				    if (_isWarmingUp) return;
+
+				    IsWarmingUpFeedback.OutputChange -= handler;
+				    var action = selector as Action;
+				    if (action != null) action();
 				};
 				IsWarmingUpFeedback.OutputChange += handler; // attach and wait for on FB
 				PowerOn();
@@ -1094,14 +1068,14 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		public void SetVolume(ushort level)
 		{
             int scaled;
-			_LastVolumeSent = level;
+			_lastVolumeSent = level;
             if (!ScaleVolume)
             {
                 scaled = (int)NumericalHelpers.Scale(level, 0, 65535, 0, 100);
             }
             else
             {
-                scaled = (int)NumericalHelpers.Scale(level, 0, 65535, LowerLimit, UpperLimit);
+                scaled = (int)NumericalHelpers.Scale(level, 0, 65535, _lowerLimit, _upperLimit);
             }
 			// The inputs to Scale ensure that byte won't overflow
             SendBytes(new byte[] { Header, VolumeLevelControlCmd, 0x00, 0x01, Convert.ToByte(scaled), 0x00 });
@@ -1154,7 +1128,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		/// </summary>
 		public void MuteToggle()
 		{
-			if (_IsMuted)
+			if (_isMuted)
 				MuteOff();
 			else
 				MuteOn();
@@ -1168,13 +1142,13 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		{
 			if (pressRelease)
 			{
-				VolumeIncrementer.StartDown();
-				VolumeIsRamping = true;
+				_volumeIncrementer.StartDown();
+				_volumeIsRamping = true;
 			}
 			else
 			{
-				VolumeIsRamping = false;
-				VolumeIncrementer.Stop();
+				_volumeIsRamping = false;
+				_volumeIncrementer.Stop();
 			}
 		}
 
@@ -1186,13 +1160,13 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		{
 			if (pressRelease)
 			{
-				VolumeIncrementer.StartUp();
-				VolumeIsRamping = true;
+				_volumeIncrementer.StartUp();
+				_volumeIsRamping = true;
 			}
 			else
 			{
-				VolumeIsRamping = false;
-				VolumeIncrementer.Stop();
+				_volumeIsRamping = false;
+				_volumeIncrementer.Stop();
 			}
 		}
 
@@ -1204,8 +1178,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		public void VolumeGet()
 		{
             SendBytes(new byte[] { Header, VolumeLevelControlCmd, 0x00, 0x00, 0x00 });
-            if (PollRing != null) PollRing = null;
-            PollRing = new CTimer(o => MuteGet(), null, 1000);
+            _pollRing = null;
+            _pollRing = new CTimer(o => MuteGet(), null, 1000);
 		}
 
 		#endregion

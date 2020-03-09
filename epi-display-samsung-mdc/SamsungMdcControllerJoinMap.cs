@@ -82,6 +82,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		/// Analog join to report LED product monitor temperature feedback
 		/// </summary>
 		public uint LedTemperatureFahrenheit { get; set; }
+
+        public uint Status { get; set; }
         #endregion
 
         #region Serials
@@ -115,6 +117,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			// Digital offsets (joinStart+offset)
 			InputSelectOffset = 10;
 			ButtonVisibilityOffset = 40;
+		    Status = 50;
 
 			// Analog
 			VolumeLevel = 5;

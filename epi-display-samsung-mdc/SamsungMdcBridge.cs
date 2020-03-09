@@ -43,12 +43,11 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			Debug.Console(2, displayDevice, "Setting Name Feedback on Seerial Join {0}", joinMap.Name);
 
 			var commMonitor = displayDevice as ICommunicationMonitor;
-			if (commMonitor != null)
-			{
-				commMonitor.CommunicationMonitor.IsOnlineFeedback.LinkInputSig(trilist.BooleanInput[joinMap.IsOnline]);
-			}
 
-			// input analog feedback
+		    commMonitor.CommunicationMonitor.IsOnlineFeedback.LinkInputSig(trilist.BooleanInput[joinMap.IsOnline]);
+		    displayDevice.StatusFeedback.LinkInputSig(trilist.UShortInput[joinMap.Status]);
+
+		    // input analog feedback
 			displayDevice.InputNumberFeedback.LinkInputSig(trilist.UShortInput[joinMap.InputSelect]);
 			Debug.Console(2, displayDevice, "Setting Input Number Feedback on Analog Join {0}", joinMap.InputSelect);
 			
@@ -60,12 +59,12 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			Debug.Console(2, displayDevice, "Setting LED Temperature Fahrenheit Feedback on Analog Join {0}", joinMap.LedTemperatureFahrenheit);
 
 			// Two way feedbacks
-			var twoWayDisplay = displayDevice as PepperDash.Essentials.Core.TwoWayDisplayBase;
+			var twoWayDisplay = displayDevice as TwoWayDisplayBase;
 			if (twoWayDisplay != null)
 			{
 				trilist.SetBool(joinMap.IsTwoWayDisplay, true);
 				Debug.Console(2, displayDevice, "Setting IsTwoWayDisplay Feedback on Digital Join {0}", joinMap.IsTwoWayDisplay);
-				twoWayDisplay.CurrentInputFeedback.OutputChange += new EventHandler<FeedbackEventArgs>(CurrentInputFeedback_OutputChange);
+				twoWayDisplay.CurrentInputFeedback.OutputChange += CurrentInputFeedback_OutputChange;
 			}
 
 			// Power Off
@@ -73,7 +72,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 				{
 					displayDevice.PowerOff();
 				});
-			displayDevice.PowerIsOnFeedback.OutputChange += new EventHandler<FeedbackEventArgs>(PowerIsOnFeedback_OutputChange);
+			displayDevice.PowerIsOnFeedback.OutputChange += PowerIsOnFeedback_OutputChange;
 			displayDevice.PowerIsOnFeedback.LinkComplementInputSig(trilist.BooleanInput[joinMap.PowerOff]);
 			Debug.Console(2, displayDevice, "Setting PowerOff Control & Feedback on Digital Join {0}", joinMap.PowerOff);
 
@@ -87,7 +86,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 
 			// Input digitals
 			int count = 1;
-			var displayBase = displayDevice as PepperDash.Essentials.Core.DisplayBase;
+			var displayBase = displayDevice as DisplayBase;
 
 			foreach (var input in displayDevice.InputPorts)
 			{
@@ -110,7 +109,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 				}
 				else if (a > 0 && a < displayDevice.InputPorts.Count)
 				{
-					displayDevice.ExecuteSwitch(displayDevice.InputPorts.ElementAt(a - 1).Selector);
+				    displayDevice.InputNumber = a + 1;
 				}
 				else if (a == 102)
 				{
@@ -121,31 +120,30 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 
 			// Volume
 			var volumeDisplay = displayDevice as IBasicVolumeControls;
-			if (volumeDisplay != null)
-			{
-				Debug.Console(2, displayDevice, "Setting VolumeUp Control on Digital Join {0}", joinMap.VolumeUp);
-				trilist.SetBoolSigAction(joinMap.VolumeUp, (b) => volumeDisplay.VolumeUp(b));
+		    {
+		        Debug.Console(2, displayDevice, "Setting VolumeUp Control on Digital Join {0}", joinMap.VolumeUp);
+		        trilist.SetBoolSigAction(joinMap.VolumeUp, volumeDisplay.VolumeUp);
 
-				Debug.Console(2, displayDevice, "Setting VolumeDown Control on Digital Join {0}", joinMap.VolumeDown);
-				trilist.SetBoolSigAction(joinMap.VolumeDown, (b) => volumeDisplay.VolumeDown(b));
+		        Debug.Console(2, displayDevice, "Setting VolumeDown Control on Digital Join {0}", joinMap.VolumeDown);
+		        trilist.SetBoolSigAction(joinMap.VolumeDown, (b) => volumeDisplay.VolumeDown(b));
 
-				Debug.Console(2, displayDevice, "Setting VolumeMuteToggle Control & Feedback on Digital Join {0}", joinMap.VolumeMute);
-				trilist.SetSigTrueAction(joinMap.VolumeMute, () => volumeDisplay.MuteToggle());
+		        Debug.Console(2, displayDevice, "Setting VolumeMuteToggle Control & Feedback on Digital Join {0}", joinMap.VolumeMute);
+		        trilist.SetSigTrueAction(joinMap.VolumeMute, () => volumeDisplay.MuteToggle());
 
-                trilist.SetSigTrueAction(joinMap.VolumeMuteOn, () => displayDevice.MuteOn());
-                trilist.SetSigTrueAction(joinMap.VolumeMuteOff, () => displayDevice.MuteOff());
+		        trilist.SetSigTrueAction(joinMap.VolumeMuteOn, () => displayDevice.MuteOn());
+		        trilist.SetSigTrueAction(joinMap.VolumeMuteOff, () => displayDevice.MuteOff());
 
-				var volumeDisplayWithFeedback = volumeDisplay as IBasicVolumeWithFeedback;
-				if (volumeDisplayWithFeedback != null)
-				{
-					trilist.SetUShortSigAction(joinMap.VolumeLevel, new Action<ushort>((u) => volumeDisplayWithFeedback.SetVolume(u)));
-					Debug.Console(2, displayDevice, "Setting VolumeLevel Control & Feedback on Analog Join {0}", joinMap.VolumeLevel);
+		        var volumeDisplayWithFeedback = volumeDisplay as IBasicVolumeWithFeedback;
+		        if (volumeDisplayWithFeedback != null)
+		        {
+		            trilist.SetUShortSigAction(joinMap.VolumeLevel, (u) => volumeDisplayWithFeedback.SetVolume(u));
+		            Debug.Console(2, displayDevice, "Setting VolumeLevel Control & Feedback on Analog Join {0}", joinMap.VolumeLevel);
 
-					volumeDisplayWithFeedback.VolumeLevelFeedback.LinkInputSig(trilist.UShortInput[joinMap.VolumeLevel]);
-                    volumeDisplayWithFeedback.MuteFeedback.LinkInputSig(trilist.BooleanInput[joinMap.VolumeMuteOn]);
-                    volumeDisplayWithFeedback.MuteFeedback.LinkComplementInputSig(trilist.BooleanInput[joinMap.VolumeMuteOff]);
-				}
-			}
+		            volumeDisplayWithFeedback.VolumeLevelFeedback.LinkInputSig(trilist.UShortInput[joinMap.VolumeLevel]);
+		            volumeDisplayWithFeedback.MuteFeedback.LinkInputSig(trilist.BooleanInput[joinMap.VolumeMuteOn]);
+		            volumeDisplayWithFeedback.MuteFeedback.LinkComplementInputSig(trilist.BooleanInput[joinMap.VolumeMuteOff]);
+		        }
+		    }
 		}
 
 		/// <summary>
