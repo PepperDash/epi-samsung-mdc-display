@@ -475,11 +475,11 @@ namespace PepperDash.Plugin.Display.SamsungMdc
                 if (_upperLimit > _lowerLimit)
                 {
                     ScaleVolume = true;
-                }
+                }	
             }
 
 			//TODO: determine your poll rate the first value in teh GenericCommunicationMonitor, currently 45s (45,000)
-            var pollInterval = _pollIntervalMs > 0 ? _pollIntervalMs : 10000;
+            var pollInterval = _pollIntervalMs > 0 ? _pollIntervalMs : 30000;
             CommunicationMonitor = new GenericCommunicationMonitor(this, Communication, pollInterval, 180000, 300000, StatusGet);
 			DeviceManager.AddDevice(CommunicationMonitor);
 
@@ -586,6 +586,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         {
 	        try
 	        {
+
+				Debug.Console(2, this, "Received from e:{0}", ComTextHelper.GetEscapedText(e.Bytes));
 	            // This is probably not thread-safe buffering
 	            // Append the incoming bytes with whatever is in the buffer
 	            var newBytes = new byte[_incomingBuffer.Length + e.Bytes.Length];
@@ -594,102 +596,104 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 
 	            if (Debug.Level == 2)
 	                // This check is here to prevent following string format from building unnecessarily on level 0 or 1
-	                Debug.Console(2, this, "Received:{0}", ComTextHelper.GetEscapedText(newBytes));
+	                Debug.Console(2, this, "Received new bytes:{0}", ComTextHelper.GetEscapedText(newBytes));
 
-	            // Need to find AA FF and have f
-	            for (int i = 0; i < newBytes.Length; i++)
-	            {
-	                if (newBytes[i] == 0xAA && newBytes[i + 1] == 0xFF)
-	                {
-	                    newBytes = newBytes.Skip(i).ToArray(); // Trim off junk if there's "dirt" in the buffer
-	                    if (Debug.Level == 2)
-	                        // This check is here to prevent following string format from building unnecessarily on level 0 or 1
-	                        Debug.Console(2, this, "newBytes:{0}", ComTextHelper.GetEscapedText(newBytes));
+	            // Need to find AA FF and have 
+				if (newBytes.Length > 2)
+				{
+					for (int i = 0; i < newBytes.Length; i++)
+					{
+						if (newBytes[i] == 0xAA && newBytes[i + 1] == 0xFF)
+						{
+							newBytes = newBytes.Skip(i).ToArray(); // Trim off junk if there's "dirt" in the buffer
+							if (Debug.Level == 2)
+								// This check is here to prevent following string format from building unnecessarily on level 0 or 1
+								Debug.Console(2, this, "newBytes:{0}", ComTextHelper.GetEscapedText(newBytes));
 
-	                    // parse it
-	                    // If it's at least got the header, then process it, 
-	                    while (newBytes.Length > 4 && newBytes[0] == Header && newBytes[1] == 0xFF)
-	                    {
-	                        var msgLen = newBytes[3];
-	                        Debug.Console(2, this, "msgLen:{0}", msgLen);
-	                        // if the buffer is shorter than the header (3) + message (msgLen) + checksum (1),
-	                        // give and save it for next time 
-	                        if (newBytes.Length < msgLen + 4)
-	                            break;
+							// parse it
+							// If it's at least got the header, then process it, 
+							while (newBytes.Length > 4 && newBytes[0] == Header && newBytes[1] == 0xFF)
+							{
+								var msgLen = newBytes[3];
+								Debug.Console(2, this, "msgLen:{0}", msgLen);
+								// if the buffer is shorter than the header (3) + message (msgLen) + checksum (1),
+								// give and save it for next time 
+								if (newBytes.Length < msgLen + 4)
+									break;
 
-	                        // Good length, grab the message
-	                        var message = newBytes.Skip(4).Take(msgLen).ToArray();
-	                        if (Debug.Level == 2)
-	                            // This check is here to prevent following string format from building unnecessarily on level 0 or 1
-	                            Debug.Console(2, this, "Messgae:{0}", ComTextHelper.GetEscapedText(message));
+								// Good length, grab the message
+								var message = newBytes.Skip(4).Take(msgLen).ToArray();
+								if (Debug.Level == 2)
+									// This check is here to prevent following string format from building unnecessarily on level 0 or 1
+									Debug.Console(2, this, "Messgae:{0}", ComTextHelper.GetEscapedText(message));
 
-	                        // At this point, the ack/nak is the first byte
-	                        if (message[0] == 0x41)
-	                        {
-	                            // type byte
-	                            switch (message[1])
-	                            {
-	                                    // General status
-	                                case StatusControlCmd:
-	                                {
-	                                    //UpdatePowerFB(message[2], message[5]); // "power" can be misrepresented when the display sleeps
-	                                    // Handle the first power on fb when waiting for it.
-	                                    if (_isPoweringOnIgnorePowerFb && message[2] == PowerControlOn)
-	                                        _isPoweringOnIgnorePowerFb = false;
-	                                    // Ignore general-status power off messages when powering up
-	                                    if (!(_isPoweringOnIgnorePowerFb && message[2] == PowerControlOff))
-	                                        UpdatePowerFb(message[2]);
-	                                    UpdateVolumeFb(message[3]);
-	                                    UpdateMuteFb(message[4]);
-	                                    UpdateInputFb(message[5]);
-	                                    break;
-	                                }
-	                                    // Power status
-	                                case PowerControlCmd:
-	                                {
-	                                    UpdatePowerFb(message[2]);
-	                                    break;
-	                                }
-	                                    // Volume level
-	                                case VolumeLevelControlCmd:
-	                                {
-	                                    UpdateVolumeFb(message[2]);
-	                                    break;
-	                                }
-	                                    // Volume mute status
-	                                case VolumeMuteControlCmd:
-	                                {
-	                                    UpdateMuteFb(message[2]);
-	                                    break;
-	                                }
-	                                    // Input status
-	                                case InputControlCmd:
-	                                {
-	                                    UpdateInputFb(message[2]);
-	                                    break;
-	                                }
-	                                    // LED product monitor
-	                                case LedProductMonitoringCmd:
-	                                {
-	                                    UpdateLedTemperatureFb(message[5]);
-	                                    break;
-	                                }
-	                                default:
-	                                {
-	                                    break;
-	                                }
-	                            }
-	                        }
-	                        // Skip over what we've used and save the rest for next time
-	                        newBytes = newBytes.Skip(5 + msgLen).ToArray();
-	                        if (Debug.Level == 2)
-	                            // This check is here to prevent following string format from building unnecessarily on level 0 or 1
-	                            Debug.Console(2, this, "newBytes(loop):{0}", ComTextHelper.GetEscapedText(newBytes));
-	                    }
-	                    break; // parsing will mean we can stop looking for header in loop
-	                }
-	            }
-
+								// At this point, the ack/nak is the first byte
+								if (message[0] == 0x41)
+								{
+									// type byte
+									switch (message[1])
+									{
+										// General status
+										case StatusControlCmd:
+											{
+												//UpdatePowerFB(message[2], message[5]); // "power" can be misrepresented when the display sleeps
+												// Handle the first power on fb when waiting for it.
+												if (_isPoweringOnIgnorePowerFb && message[2] == PowerControlOn)
+													_isPoweringOnIgnorePowerFb = false;
+												// Ignore general-status power off messages when powering up
+												if (!(_isPoweringOnIgnorePowerFb && message[2] == PowerControlOff))
+													UpdatePowerFb(message[2]);
+												UpdateVolumeFb(message[3]);
+												UpdateMuteFb(message[4]);
+												UpdateInputFb(message[5]);
+												break;
+											}
+										// Power status
+										case PowerControlCmd:
+											{
+												UpdatePowerFb(message[2]);
+												break;
+											}
+										// Volume level
+										case VolumeLevelControlCmd:
+											{
+												UpdateVolumeFb(message[2]);
+												break;
+											}
+										// Volume mute status
+										case VolumeMuteControlCmd:
+											{
+												UpdateMuteFb(message[2]);
+												break;
+											}
+										// Input status
+										case InputControlCmd:
+											{
+												UpdateInputFb(message[2]);
+												break;
+											}
+										// LED product monitor
+										case LedProductMonitoringCmd:
+											{
+												UpdateLedTemperatureFb(message[5]);
+												break;
+											}
+										default:
+											{
+												break;
+											}
+									}
+								}
+								// Skip over what we've used and save the rest for next time
+								newBytes = newBytes.Skip(5 + msgLen).ToArray();
+								if (Debug.Level == 2)
+									// This check is here to prevent following string format from building unnecessarily on level 0 or 1
+									Debug.Console(2, this, "newBytes(loop):{0}", ComTextHelper.GetEscapedText(newBytes));
+							}
+							break; // parsing will mean we can stop looking for header in loop
+						}
+					}
+				}
 	            // Save whatever partial message is here
 	            _incomingBuffer = newBytes;
 	            if (Debug.Level == 2)
@@ -702,6 +706,11 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 	            Debug.LogError(Debug.ErrorLogLevel.Warning, String.Format("Stack trace: {0}", ex.StackTrace));
 	        }
         }
+
+		void ParseData(Byte[] data)
+		{
+
+		}
 
 		/// <summary>
 		/// Power feedback
@@ -996,7 +1005,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
             
             _pollRing = null;
             //PollRing = new CTimer(o => VolumeGet(), null, 1000);
-			_pollRing = new CTimer(o => LedProductMonitorGet(), null, 1000);
+			_pollRing = new CTimer(o => LedProductMonitorGet(), null, 10000);
             
 		}
 
