@@ -591,7 +591,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			{
 
 				int dataLength = 0;
-				Debug.Console(2, this, "Received from e:{0}", ComTextHelper.GetEscapedText(e.Bytes));
+
+				//Debug.Console(2, this, "Received from e:{0}", ComTextHelper.GetEscapedText(e.Bytes));
 
 				// Append the incoming bytes with whatever is in the buffer
 				var newBytes = new byte[_incomingBuffer.Length + e.Bytes.Length];
@@ -600,12 +601,12 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 				
 				// clear buffer
 				//_incomingBuffer = _incomingBuffer.Skip(_incomingBuffer.Length).ToArray();
-
+				
 				if (Debug.Level == 2)
 					// This check is here to prevent
 					// following string format from building unnecessarily on level 0 or 1
 					Debug.Console(2, this, "Received new bytes:{0}", ComTextHelper.GetEscapedText(newBytes));
-
+			
 				// Get data length
 				if (newBytes.Length >= 6)
 				{
@@ -614,14 +615,11 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 
 						// header + length + checksum
 						dataLength = 5 + newBytes[3];
-						Debug.Console(2, this, "Got Data Length:{0} {1}", dataLength, newBytes[3]);
+						// Debug.Console(2, this, "Got Data Length:{0} {1}", dataLength, newBytes[3]);
 						if (newBytes.Length >= dataLength)
 						{
 							var message = new byte[dataLength];
-							newBytes.CopyTo(message, 0);
-							
-							//newBytes = newBytes.Skip(newBytes.Length).ToArray();
-							
+							newBytes.CopyTo(message, 0);							
 							ParseMessage(message);
 							byte[] clear = { };
 							_incomingBuffer = clear;
@@ -638,6 +636,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 						// This check is here to prevent following string format from building unnecessarily on level 0 or 1
 						Debug.Console(2, this, "Add to buffer:{0}", ComTextHelper.GetEscapedText(_incomingBuffer));
 					}
+				
 				}
 				else
 				{
@@ -657,27 +656,35 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		void ParseMessage(byte[] message)
 		{
 			var command = message[5];
+
 			if (Debug.Level == 2)
 			{
 				// This check is here to prevent following string format from building unnecessarily on level 0 or 1
-				Debug.Console(2, this, "ParseMessage:{0} {1}", ComTextHelper.GetEscapedText(message), command);
+				Debug.Console(2, this, "Add to buffer:{0}", ComTextHelper.GetEscapedText(_incomingBuffer));
 			}
+			
 			
 			switch (command)
 			{
 				// General status
 				case StatusControlCmd:
 					{
+
 						//UpdatePowerFB(message[2], message[5]); // "power" can be misrepresented when the display sleeps
 						// Handle the first power on fb when waiting for it.
 						if (_isPoweringOnIgnorePowerFb && message[6] == PowerControlOn)
 							_isPoweringOnIgnorePowerFb = false;
 						// Ignore general-status power off messages when powering up
-						if (!(_isPoweringOnIgnorePowerFb && message[6] == PowerControlOff))
+						// if (!(_isPoweringOnIgnorePowerFb && message[6] == PowerControlOff))
 						UpdatePowerFb(message[6]);
 						UpdateVolumeFb(message[7]);
 						UpdateMuteFb(message[8]);
 						UpdateInputFb(message[9]);
+						if (Debug.Level == 2)
+						{
+							// This check is here to prevent following string format from building unnecessarily on level 0 or 1
+							Debug.Console(2, this, "StatusControlCmd Power{0}, Mute{1}, Volume{2} Input{3}", message[6], message[7], message[8], message[9]);
+						}
 						break;
 					}
 				// Power status
@@ -725,7 +732,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			var newVal = powerByte == 1;
 		    if (newVal == _powerIsOn) return;
 		    _powerIsOn = newVal;
-		    PowerIsOnFeedback.FireUpdate();
+		    PowerIsOnFeedback.FireUpdate();	
 		}
 
 	    // <summary>
@@ -768,7 +775,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		void UpdateInputFb(byte b)
 		{
 			var newInput = InputPorts.FirstOrDefault(i => i.FeedbackMatchObject.Equals(b));
-			if (newInput != null && newInput != _currentInputPort)
+			if (newInput != null)
 			{
 				_currentInputPort = newInput;
 				CurrentInputFeedback.FireUpdate();
@@ -829,9 +836,10 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			}
 			checksum = checksum & 0x000000FF; // mask off MSBs
 			b[b.Length - 1] = (byte)checksum;
+			
 			if (Debug.Level == 2) // This check is here to prevent following string format from building unnecessarily on level 0 or 1
 				Debug.Console(2, this, "Sending:{0}", ComTextHelper.GetEscapedText(b));
-
+			
 			_lastCommandSentWasVolume = b[1] == 0x12;
 
 			Communication.SendBytes(b);
@@ -844,11 +852,12 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 		public void StatusGet()
 		{
 			//SendBytes(new byte[] { Header, StatusControlCmd, 0x00, 0x00, StatusControlGet, 0x00 });
-            
+			SendBytes(new byte[] { Header, 0x00, 0x00, 0x00, 0x00});
+			/*
             PowerGet();
             _pollRing = null;
             _pollRing = new CTimer(o => InputGet(), null, 1000);
-            
+            */
 		}
 
 		/// <summary>
@@ -887,6 +896,9 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 				SendBytes(new byte[] { Header, PowerControlCmd, 0x00, 0x01, PowerControlOff, 0x00 });
 				_isCoolingDown = true;
 				_powerIsOn = false;
+				_inputNumber = 0;
+				UpdateBooleanFeedback();
+				InputNumberFeedback.FireUpdate();
 				PowerIsOnFeedback.FireUpdate();
 				IsCoolingDownFeedback.FireUpdate();
 				// Fake cool-down cycle
