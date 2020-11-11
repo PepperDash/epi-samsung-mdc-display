@@ -3,3 +3,5 @@ PepperDash_Plugin_Display_SamsungMDC/obj/Debug/ResolveAssemblyReference.cache
 PepperDash_Plugin_Display_SamsungMDC/obj/Debug/PDT.SamsungDisplay.EPI.pdb
 PepperDash_Plugin_Display_SamsungMDC/obj/Debug/PDT.SamsungDisplay.EPI.dll
 PepperDash_Plugin_Display_SamsungMDC/obj/Debug/PDT.SamsungDisplay.EPI.csproj.FileListAbsolute.txt
+*.projectinfo
+*.suo
