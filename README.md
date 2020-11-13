@@ -1,38 +1,44 @@
-# PepperDash Plugin - Display - Samsung MDC #
+# PepperDash Plugin - Display - Samsung MDC
 
-This is a plugin repo for Samsung MDC displays and adds features needed that are not currently part of the Essentials Samsung MDC implementation.  To use the plugin follow the steps below.
+This is a plugin repo for Samsung MDC displays and adds features needed that are not currently part of the Essentials Samsung MDC implementation. To use the plugin follow the steps below.
 
 1. Clone the repo
-   - The plugin repo does contain a submodule to the Essentials_Build repo
-2. Copy the *.cplz to th plugin folder created by Essentials 
+   - References are managed by nuget. To install the correct references, enter the command below:
+     `nuget install .\packages.config -ExcludeVersion -OutputDirectory .\packages`
+   - Check the slash direction: if installing from Git Bash, the slashes should be `/` instead of `\`
+2. Copy the \*.cplz to th plugin folder created by Essentials
    - ex. \USER\program[X]\plugins\*.cplz
 3. Update the Essentials configuration file to include the display objects and display bridge (see examples below)
-   -  The plugin "type" is set C# to "samsungmdcplugin"
-4. Load the Essentials configuration file to the program folder created by Essentials 
-   - ex. \USER\program[x]\*configurationFile*.json)
+   - The plugin "type" is set C# to "samsungmdcplugin"
+4. Load the Essentials configuration file to the program folder created by Essentials
+   - ex. \USER\program[x]\*configurationFile\*.json)
 5. Restart Essentials to load the plugin
 
-## Device Specifc Information ##
+## Device Specifc Information
 
 This plugin was built using the Samsung SEC-VD-DSW Multiple Display Control document, Ver. 14.4, 2018-4-4.
 
-### RS232 Specification ###
+### RS232 Specification
+
 |              |      |
-|--------------|------|
+| ------------ | ---- |
 | Baudrate     | 9600 |
 | Data Bits    | 8    |
 | Parity       | None |
 | Stop Bits    | 1    |
 | Flow Control | None |
 
-### Network Specification ###
+### Network Specification
+
 |            |              |
-|------------|--------------|
+| ---------- | ------------ |
 | Default IP | 192.168.0.10 |
 | Port       | 1515         |
 
-## Example Configuration Object ##
-### Display Object using RS-232 ###
+## Example Configuration Object
+
+### Display Object using RS-232
+
 ```
 {
 	"key": "Display01",
@@ -60,7 +66,8 @@ This plugin was built using the Samsung SEC-VD-DSW Multiple Display Control docu
 },
 ```
 
-### Display Object using TCP/IP ###
+### Display Object using TCP/IP
+
 ```
 {
 	"key": "Display01",
@@ -85,7 +92,8 @@ This plugin was built using the Samsung SEC-VD-DSW Multiple Display Control docu
 },
 ```
 
-### Display Plugin Bridge Object ###
+### Display Plugin Bridge Object
+
 ```
 {
 	"key": "eiscBridge-Displays",
@@ -120,15 +128,16 @@ This plugin was built using the Samsung SEC-VD-DSW Multiple Display Control docu
 }
 ```
 
-## Bridge Join Map ##
+## Bridge Join Map
 
-* Each display has 50 buttons available
-* The I/O number will depend on the joinStart defined in the configuration file
-  * Add the defined joinStart to the I/O number if not starting at 1
+- Each display has 50 buttons available
+- The I/O number will depend on the joinStart defined in the configuration file
+  - Add the defined joinStart to the I/O number if not starting at 1
 
-### Digitals ###
+### Digitals
+
 | Input                          | I/O | Output                     |
-|--------------------------------|-----|----------------------------|
+| ------------------------------ | --- | -------------------------- |
 | Power Off                      | 1   | Power Off Fb               |
 | Power On                       | 2   | Power On Fb                |
 |                                | 3   | Is Two Display Fb          |
@@ -157,15 +166,17 @@ This plugin was built using the Samsung SEC-VD-DSW Multiple Display Control docu
 |                                | 49  | Button 10 Visibility Fb    |
 |                                | 50  | Display Online Fb          |
 
-### Analogs ###
+### Analogs
+
 | Input                      | I/O | Output                 |
-|----------------------------|-----|------------------------|
+| -------------------------- | --- | ---------------------- |
 | Volume Level Set           | 5   | Volume Level Fb        |
 | Input Number Select [1-10] | 11  | Input Number Fb [1-10] |
 
-### Serials ###
+### Serials
+
 | Input | I/O | Output                       |
-|-------|-----|------------------------------|
+| ----- | --- | ---------------------------- |
 |       | 1   | Display Name                 |
 |       | 11  | Input 1 Name [HDMI 1]        |
 |       | 12  | Input 2 Name [HDMI 2]        |
