@@ -1040,7 +1040,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
                 case 0x0b: //Serial Number
                 {
                     var serialNumber = new byte[18];
-                    Array.Copy(message,6, serialNumber, 0, 18);
+                    Array.Copy(message, 6, serialNumber, 0, 18);
 
                     UpdateSerialNumber(serialNumber);
                     break;
@@ -1081,7 +1081,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 
                     break;
                 }
-                    
+
                 default:
                 {
                     Debug.Console(1, this, "Unknown message: {0}", ComTextHelper.GetEscapedText(message));
@@ -1106,7 +1106,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 
             DeviceInfo.IpAddress = String.Format("{0}.{1}.{2}.{3}", ipAddress[0], ipAddress[1], ipAddress[2],
                 ipAddress[3]);
-            
+
             OnDeviceInfoChange();
         }
 
@@ -1132,7 +1132,10 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         {
             var handler = DeviceInfoChanged;
 
-            if (handler == null) return;
+            if (handler == null)
+            {
+                return;
+            }
 
             handler(this, new DeviceInfoEventArgs {DeviceInfo = DeviceInfo});
         }
