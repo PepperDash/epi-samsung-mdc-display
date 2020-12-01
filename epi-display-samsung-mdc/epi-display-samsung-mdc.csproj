@@ -105,8 +105,8 @@
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SamsungMdc.cs" />
-    <Compile Include="SamsungMdcBridge.cs" />
     <Compile Include="SamsungMdcConfigObject.cs" />
+    <Compile Include="SamsungMdcControllerFactory.cs" />
     <Compile Include="SamsungMdcControllerJoinMap.cs" />
   </ItemGroup>
   <ItemGroup>
