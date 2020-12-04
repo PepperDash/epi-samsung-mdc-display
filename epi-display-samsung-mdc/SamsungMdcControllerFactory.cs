@@ -5,12 +5,11 @@ using PepperDash.Essentials.Core.Config;
 
 namespace PepperDash.Plugin.Display.SamsungMdc
 {
-    public class SamsungMdcControllerFactory:EssentialsPluginDeviceFactory<SamsungMdcDisplayController>
+    public class SamsungMdcControllerFactory : EssentialsPluginDeviceFactory<SamsungMdcDisplayController>
     {
-        public SamsungMdcControllerFactory():base()
+        public SamsungMdcControllerFactory()
         {
-            MinimumEssentialsFrameworkVersion = "1.6.7";
-
+			MinimumEssentialsFrameworkVersion = "1.6.7";
             TypeNames = new List<string> {"samsungMdcPlugin"};
         }
 
@@ -18,6 +17,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 
         public override EssentialsDevice BuildDevice(DeviceConfig dc)
         {
+
             var comms = CommFactory.CreateCommForDevice(dc);
 
             if (comms == null)

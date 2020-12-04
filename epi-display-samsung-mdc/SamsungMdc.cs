@@ -21,9 +21,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         IBridgeAdvanced, IDeviceInfoProvider
     {
         public const int InputPowerOn = 101;
-
         public const int InputPowerOff = 102;
-        public static string MinimumEssentialsFrameworkVersion = "1.4.32";
         public static List<string> InputKeys = new List<string>();
         private readonly SamsungMDCDisplayPropertiesConfig _config;
         private readonly uint _coolingTimeMs;
@@ -56,6 +54,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 			{
 				_CurrentInputNumber = value;
 				InputNumberFeedback.FireUpdate();
+				UpdateBooleanFeedback();
 			}
 		}
 		private int _CurrentInputNumber;
@@ -106,13 +105,13 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         public byte Id { get; private set; }
         public IntFeedback StatusFeedback { get; set; }
 
-        public int InputNumber
+        public int SetInput
         {
 			get { return CurrentInputNumber; }
             set 
 			{ 
-				ExecuteSwitch(InputPorts.ElementAt(value).Selector);
-				CurrentInputNumber = value;
+				ExecuteSwitch(InputPorts[value].Selector);
+				CurrentInputNumber = value + 1;
 			}
         }
 
@@ -696,17 +695,17 @@ namespace PepperDash.Plugin.Display.SamsungMdc
             PowerIsOnFeedback.LinkInputSig(trilist.BooleanInput[joinMap.PowerOn.JoinNumber]);
 
             // Input digitals
-            var count = 1;
+            var count = 0;
 
             foreach (var input in InputPorts)
             {
-                var i = input;
+                var i = count;
                 trilist.SetSigTrueAction((ushort) (joinMap.InputSelectOffset.JoinNumber + count),
-                    () => ExecuteSwitch(InputPorts[i.Key].Selector));
+					() => SetInput = i);
 
-                trilist.StringInput[(ushort) (joinMap.InputNamesOffset.JoinNumber + count)].StringValue = i.Key;
+                trilist.StringInput[(ushort) (joinMap.InputNamesOffset.JoinNumber + count)].StringValue = input.Key;
 
-                InputFeedback[count - 1].LinkInputSig(
+                InputFeedback[count].LinkInputSig(
                     trilist.BooleanInput[joinMap.InputSelectOffset.JoinNumber + (uint) count]);
                 count++;
             }
@@ -721,7 +720,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
                 }
                 else if (a > 0 && a < InputPorts.Count)
                 {
-                    InputNumber = a + 1;
+                    SetInput = a + 1;
 					
                 }
                 else if (a == 102)
@@ -1261,7 +1260,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
             }
 
             InputNumberFeedback.FireUpdate();
-            UpdateBooleanFeedback();
+            
         }
 
         /// <summary>
@@ -1355,7 +1354,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
                 _isCoolingDown = true;
                 _powerIsOn = false;
 				CurrentInputNumber = 0;
-                UpdateBooleanFeedback();
+                
                 InputNumberFeedback.FireUpdate();
                 PowerIsOnFeedback.FireUpdate();
                 IsCoolingDownFeedback.FireUpdate();
