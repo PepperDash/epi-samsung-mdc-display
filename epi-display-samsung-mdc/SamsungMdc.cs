@@ -109,9 +109,12 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         {
 			get { return CurrentInputNumber; }
             set 
-			{ 
-				ExecuteSwitch(InputPorts[value].Selector);
-				CurrentInputNumber = value + 1;
+			{
+				if (value > 0 && value < InputPorts.Count)
+				{
+					ExecuteSwitch(InputPorts.ElementAt(value - 1).Selector);
+					CurrentInputNumber = value;
+				}
 			}
         }
 
@@ -686,7 +689,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
             CurrentInputFeedback.OutputChange +=
                 (sender, args) => Debug.Console(0, "CurrentInputFeedback_OutputChange {0}", args.StringValue);
             // Power Off
-            trilist.SetSigTrueAction(joinMap.PowerOff.JoinNumber, PowerOff);
+            trilist.SetSigTrueAction(joinMap.PowerOff.JoinNumber, () => PowerOff());
 
             PowerIsOnFeedback.LinkComplementInputSig(trilist.BooleanInput[joinMap.PowerOff.JoinNumber]);
 
@@ -701,7 +704,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
             {
                 var i = count;
                 trilist.SetSigTrueAction((ushort) (joinMap.InputSelectOffset.JoinNumber + count),
-					() => SetInput = i);
+					() => SetInput = i + 1);
 
                 trilist.StringInput[(ushort) (joinMap.InputNamesOffset.JoinNumber + count)].StringValue = input.Key;
 
@@ -720,7 +723,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
                 }
                 else if (a > 0 && a < InputPorts.Count)
                 {
-                    SetInput = a + 1;
+                    SetInput = a;
 					
                 }
                 else if (a == 102)
@@ -1228,7 +1231,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         private void UpdateInputFb(byte b)
         {
             var newInput = InputPorts.FirstOrDefault(i => i.FeedbackMatchObject.Equals(b));
-            if (newInput != null)
+            if (newInput != null && _powerIsOn)
             {
                 _currentInputPort = newInput;
                 CurrentInputFeedback.FireUpdate();
@@ -1257,9 +1260,10 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 						CurrentInputNumber = 7;
                         break;
                 }
+				InputNumberFeedback.FireUpdate();
             }
 
-            InputNumberFeedback.FireUpdate();
+            
             
         }
 
@@ -1321,6 +1325,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         public override void PowerOn()
         {
             _isPoweringOnIgnorePowerFb = true;
+			Debug.Console(2, this, "CallingPowerOn");
             SendBytes(new byte[] {Header, PowerControlCmd, 0x00, 0x01, PowerControlOn, 0x00});
 
             if (PowerIsOnFeedback.BoolValue || _isWarmingUp || _isCoolingDown)
@@ -1346,6 +1351,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         public override void PowerOff()
         {
             _isPoweringOnIgnorePowerFb = false;
+			Debug.Console(2, this, "CallingPowerOff");
             // If a display has unreliable-power off feedback, just override this and
             // remove this check.
             if (!_isWarmingUp && !_isCoolingDown) // PowerIsOnFeedback.BoolValue &&
