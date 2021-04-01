@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using System.Collections.Generic;
+using Newtonsoft.Json;
 using System;
 
 namespace PepperDash.Plugin.Display.SamsungMdc
@@ -22,5 +23,22 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 
         [JsonProperty("warmingTimeMs")]
         public uint warmingTimeMs { get; set; }
+
+        [JsonProperty("friendlyNames")]
+        public List<FriendlyName> FriendlyNames { get; set; }
+
+	    public SamsungMDCDisplayPropertiesConfig()
+	    {
+	        FriendlyNames = new List<FriendlyName>();
+	    }
 	}
+
+    public class FriendlyName
+    {
+        [JsonProperty("inputKey")]
+        public string InputKey { get; set; }
+
+        [JsonProperty("name")]
+        public string Name { get; set; }
+    }
 }

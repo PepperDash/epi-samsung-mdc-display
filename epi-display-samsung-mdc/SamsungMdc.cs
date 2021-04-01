@@ -675,17 +675,26 @@ namespace PepperDash.Plugin.Display.SamsungMdc
             PowerIsOnFeedback.LinkInputSig(trilist.BooleanInput[joinMap.PowerOn.JoinNumber]);
 
             // Input digitals
-            var count = 1;
+            var count = 0;
 
             foreach (var input in InputPorts)
             {
                 var i = input;
                 trilist.SetSigTrueAction((ushort) (joinMap.InputSelectOffset.JoinNumber + count),
                     () => ExecuteSwitch(InputPorts[i.Key].Selector));
+                
+                var friendlyName = _config.FriendlyNames.FirstOrDefault(n => n.InputKey == i.Key);
 
-                trilist.StringInput[(ushort) (joinMap.InputNamesOffset.JoinNumber + count)].StringValue = i.Key;
+                if (friendlyName != null)
+                {
+                    Debug.Console(1, this, "Friendly Name found for input {0}: {1}", i.Key, friendlyName.Name);
+                }
 
-                InputFeedback[count - 1].LinkInputSig(
+                var name = friendlyName == null ? i.Key : friendlyName.Name;
+                
+                trilist.StringInput[(ushort) (joinMap.InputNamesOffset.JoinNumber + count)].StringValue = name;
+
+                InputFeedback[count].LinkInputSig(
                     trilist.BooleanInput[joinMap.InputSelectOffset.JoinNumber + (uint) count]);
                 count++;
             }
