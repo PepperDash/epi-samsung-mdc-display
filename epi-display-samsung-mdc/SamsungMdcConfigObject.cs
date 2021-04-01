@@ -22,5 +22,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 
         [JsonProperty("warmingTimeMs")]
         public uint warmingTimeMs { get; set; }
+
+		[JsonProperty("showVolumeControls")]
+		public bool showVolumeControls { get; set; }
 	}
 }
