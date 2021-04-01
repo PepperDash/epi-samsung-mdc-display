@@ -56,6 +56,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         private bool _volumeIsRamping;
         private ushort _volumeLevelForSig;
 
+		private bool _showVolumeControls;
+
         /// <summary>
         /// Constructor for IBaseCommunication
         /// </summary>
@@ -74,12 +76,12 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 
             Id = _config.Id == null ? (byte) 0x01 : Convert.ToByte(_config.Id, 16);
 
-
             _upperLimit = _config.volumeUpperLimit;
             _lowerLimit = _config.volumeLowerLimit;
             _pollIntervalMs = _config.pollIntervalMs;
             _coolingTimeMs = _config.coolingTimeMs;
             _warmingTimeMs = _config.warmingTimeMs;
+			_showVolumeControls = _config.showVolumeControls;
 
             DeviceInfo = new DeviceInfo();
             Init();
@@ -652,27 +654,15 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 
             CommunicationMonitor.IsOnlineFeedback.LinkInputSig(trilist.BooleanInput[joinMap.IsOnline.JoinNumber]);
             StatusFeedback.LinkInputSig(trilist.UShortInput[joinMap.Status.JoinNumber]);
-
-            // input analog feedback
-            InputNumberFeedback.LinkInputSig(trilist.UShortInput[joinMap.InputSelect.JoinNumber]);
-
-            // led temperature analog feedback 
-            CurrentLedTemperatureCelsiusFeedback.LinkInputSig(
-                trilist.UShortInput[joinMap.LedTemperatureCelsius.JoinNumber]);
-
-            CurrentLedTemperatureCelsiusFeedback.LinkInputSig(
-                trilist.UShortInput[joinMap.LedTemperatureCelsius.JoinNumber]);
-
-            CurrentInputFeedback.OutputChange +=
-                (sender, args) => Debug.Console(0, "CurrentInputFeedback_OutputChange {0}", args.StringValue);
-            // Power Off
+   
+			// Power Off
             trilist.SetSigTrueAction(joinMap.PowerOff.JoinNumber, PowerOff);
-
             PowerIsOnFeedback.LinkComplementInputSig(trilist.BooleanInput[joinMap.PowerOff.JoinNumber]);
 
-            // PowerOn
+            // Power On
             trilist.SetSigTrueAction(joinMap.PowerOn.JoinNumber, PowerOn);
             PowerIsOnFeedback.LinkInputSig(trilist.BooleanInput[joinMap.PowerOn.JoinNumber]);
+
 
             // Input digitals
             var count = 0;
@@ -699,46 +689,59 @@ namespace PepperDash.Plugin.Display.SamsungMdc
                 count++;
             }
 
+			// Input Analog
+			trilist.SetUShortSigAction(joinMap.InputSelect.JoinNumber, a =>
+			{
+				if (a == 0)
+				{
+					PowerOff();
+				}
+				else if (a > 0 && a < InputPorts.Count)
+				{
+					InputNumber = a + 1;
+				}
+				else if (a == 102)
+				{
+					PowerToggle();
+				}
+				Debug.Console(2, this, "InputChange {0}", a);
+			});
 
-            // Input analog
-            trilist.SetUShortSigAction(joinMap.InputSelect.JoinNumber, a =>
-            {
-                if (a == 0)
-                {
-                    PowerOff();
-                }
-                else if (a > 0 && a < InputPorts.Count)
-                {
-                    InputNumber = a + 1;
-                }
-                else if (a == 102)
-                {
-                    PowerToggle();
-                }
-                Debug.Console(2, this, "InputChange {0}", a);
-            });
+
+			// Input Analog feedback
+			InputNumberFeedback.LinkInputSig(trilist.UShortInput[joinMap.InputSelect.JoinNumber]);
+
+			CurrentInputFeedback.OutputChange +=
+				(sender, args) => Debug.Console(0, "CurrentInputFeedback_OutputChange {0}", args.StringValue);
+    
 
             // Volume
-
-
             trilist.SetBoolSigAction(joinMap.VolumeUp.JoinNumber, VolumeUp);
-
-
             trilist.SetBoolSigAction(joinMap.VolumeDown.JoinNumber, VolumeDown);
-
-
             trilist.SetSigTrueAction(joinMap.VolumeMute.JoinNumber, MuteToggle);
-
             trilist.SetSigTrueAction(joinMap.VolumeMuteOn.JoinNumber, MuteOn);
             trilist.SetSigTrueAction(joinMap.VolumeMuteOff.JoinNumber, MuteOff);
-
-
             trilist.SetUShortSigAction(joinMap.VolumeLevel.JoinNumber, SetVolume);
-
-
             VolumeLevelFeedback.LinkInputSig(trilist.UShortInput[joinMap.VolumeLevel.JoinNumber]);
             MuteFeedback.LinkInputSig(trilist.BooleanInput[joinMap.VolumeMuteOn.JoinNumber]);
             MuteFeedback.LinkComplementInputSig(trilist.BooleanInput[joinMap.VolumeMuteOff.JoinNumber]);
+
+
+			// LED temperature analog feedback 
+			CurrentLedTemperatureCelsiusFeedback.LinkInputSig(
+				trilist.UShortInput[joinMap.LedTemperatureCelsius.JoinNumber]);
+			//CurrentLedTemperatureCelsiusFeedback.LinkInputSig(
+			//    trilist.UShortInput[joinMap.LedTemperatureCelsius.JoinNumber]);
+
+
+			// Show Volume Controls
+			trilist.SetBool(joinMap.VolumeControlsVisibleFb.JoinNumber, _showVolumeControls);
+			trilist.OnlineStatusChange += (d, args) =>
+			{
+				if (!args.DeviceOnLine) return;
+				trilist.SetBool(joinMap.VolumeControlsVisibleFb.JoinNumber, _showVolumeControls);
+			};
+
         }
 
         #endregion

@@ -24,6 +24,10 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         [JsonProperty("warmingTimeMs")]
         public uint warmingTimeMs { get; set; }
 
+
+		    [JsonProperty("showVolumeControls")]
+		    public bool showVolumeControls { get; set; }
+
         [JsonProperty("friendlyNames")]
         public List<FriendlyName> FriendlyNames { get; set; }
 
@@ -31,6 +35,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 	    {
 	        FriendlyNames = new List<FriendlyName>();
 	    }
+
 	}
 
     public class FriendlyName

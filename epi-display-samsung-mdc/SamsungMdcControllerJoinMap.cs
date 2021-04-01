@@ -43,6 +43,19 @@ namespace PepperDash.Plugin.Display.SamsungMdc
                 JoinType = eJoinType.Analog
             });
 
+		/// <summary>
+		/// High when volume controls are enabled
+		/// </summary>
+		[JoinName("VolumeControlsVisibleFb")]
+		public JoinDataComplete VolumeControlsVisibleFb =
+			new JoinDataComplete(new JoinData { JoinNumber = 40, JoinSpan = 1 },
+			new JoinMetadata
+			{
+				Description = "Enable Visibility of Volume Controls",
+				JoinCapabilities = eJoinCapabilities.ToSIMPL,
+				JoinType = eJoinType.Digital
+			});
+
 
 		/// <summary>
 		/// Display controller join map
