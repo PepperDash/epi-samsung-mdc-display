@@ -9,7 +9,7 @@ on:
 env:
   # solution path doesn't need slashes unless there it is multiple folders deep
   # solution name does not include extension. .sln is assumed
-  SOLUTION_PATH: epi-display-samsung-mdc
+  SOLUTION_PATH: epi-display-samsung-mdc\
   SOLUTION_FILE: epi-display-samsung-mdc
   # Do not edit this, we're just creating it here
   VERSION: 0.0.0-buildtype-buildnumber
@@ -118,6 +118,6 @@ jobs:
       - name: Add Github Packages source
         run: nuget sources add -name github -source https://nuget.pkg.github.com/pepperdash/index.json -username Pepperdash -password ${{ secrets.GITHUB_TOKEN }}
       - name: Create nuget package
-        run: nuget pack "./epi-display-samsung-mdc.nuspec" -version ${{ env.VERSION }}
+        run: nuget pack "/epi-display-samsung-mdc.nuspec" -version ${{ env.VERSION }}
       - name: Publish nuget package to Github registry
         run: nuget push **/*.nupkg -source github
