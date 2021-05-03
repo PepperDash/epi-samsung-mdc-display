@@ -1,4 +1,5 @@
-# PepperDash Plugin - Display - Samsung MDC
+![PepperDash Logo](/images/logo_pdt_no_tagline_600.png)
+# Samsung MDC Display Plugin
 
 This is a plugin repo for Samsung MDC displays and adds features needed that are not currently part of the Essentials Samsung MDC implementation. To use the plugin follow the steps below.
 
@@ -20,17 +21,17 @@ This plugin was built using the Samsung SEC-VD-DSW Multiple Display Control docu
 
 ### RS232 Specification
 
-|              |      |
-| ------------ | ---- |
-| Baudrate     | 9600 |
-| Data Bits    | 8    |
-| Parity       | None |
-| Stop Bits    | 1    |
-| Flow Control | None |
+| Property     | Value |
+| ------------ | ----- |
+| Baudrate     | 9600  |
+| Data Bits    | 8     |
+| Parity       | None  |
+| Stop Bits    | 1     |
+| Flow Control | None  |
 
 ### Network Specification
 
-|            |              |
+| Property   | Value        |
 | ---------- | ------------ |
 | Default IP | 192.168.0.10 |
 | Port       | 1515         |
@@ -39,7 +40,7 @@ This plugin was built using the Samsung SEC-VD-DSW Multiple Display Control docu
 
 ### Display Object using RS-232
 
-```
+```JSON
 {
 	"key": "Display01",
 	"uid": 1,
@@ -61,14 +62,30 @@ This plugin was built using the Samsung SEC-VD-DSW Multiple Display Control docu
 				"softwareHandshake": "None",
 				"stopBits": 1
 			}
-		}
+		},
+		"pollIntervalMs": 4500,
+		"coolingTimeMs": 1500,
+		"warmingTimeMs": 1500,
+		"showVolumeControls": false,
+		"volumeUpperLimit": 100,
+		"volumeLowerLimit": 0,
+		"friendlyNames": [
+			{
+				"inputKey": "HdmiIn1", 
+				"name": "HDMI 1"
+			},
+			{
+				"inputKey": "HdmiIn2", 
+				"name": "HDMI 2"
+			}
+		]
 	}
 },
 ```
 
 ### Display Object using TCP/IP
 
-```
+```JSON
 {
 	"key": "Display01",
 	"uid": 1,
@@ -87,14 +104,30 @@ This plugin was built using the Samsung SEC-VD-DSW Multiple Display Control docu
 				"autoReconnect": true,
 				"autoReconnectIntervalMs": 10000
 			}
-		}
+		},
+		"pollIntervalMs": 4500,
+		"coolingTimeMs": 1500,
+		"warmingTimeMs": 1500,
+		"showVolumeControls": false,
+		"volumeUpperLimit": 100,
+		"volumeLowerLimit": 0,
+		"friendlyNames": [
+			{
+				"inputKey": "HdmiIn1", 
+				"name": "HDMI 1"
+			},
+			{
+				"inputKey": "HdmiIn2", 
+				"name": "HDMI 2"
+			}
+		]
 	}
 },
 ```
 
 ### Display Plugin Bridge Object
 
-```
+```JSON
 {
 	"key": "eiscBridge-Displays",
 	"uid": 4,
