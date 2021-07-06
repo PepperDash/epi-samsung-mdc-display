@@ -544,6 +544,10 @@ namespace PepperDash.Plugin.Display.SamsungMdc
             }
             // The inputs to Scale ensure that byte won't overflow
             SendBytes(new byte[] {Header, VolumeLevelControlCmd, 0x00, 0x01, Convert.ToByte(scaled), 0x00});
+			if (_isMuted)
+			{
+				MuteOff();
+			}
         }
 
         /// <summary>
@@ -597,6 +601,10 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         {
             if (pressRelease)
             {
+				if (_isMuted)
+				{
+					MuteOff();
+				}
                 _volumeIncrementer.StartDown();
                 _volumeIsRamping = true;
             }
@@ -615,6 +623,10 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         {
             if (pressRelease)
             {
+				if (_isMuted)
+				{
+					MuteOff();
+				}
                 _volumeIncrementer.StartUp();
                 _volumeIsRamping = true;
             }
