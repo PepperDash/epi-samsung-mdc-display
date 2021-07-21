@@ -1026,7 +1026,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
                     if (Debug.Level == 2)
                     {
                         // This check is here to prevent following string format from building unnecessarily on level 0 or 1
-                        Debug.Console(2, this, "StatusControlCmd Power{0}, Mute{1}, Volume{2} Input{3}", message[6],
+                        Debug.Console(2, this, "StatusControlCmd Power{0}, Mute{2}, Volume{1} Input{3}", message[6],
                             message[7], message[8], message[9]);
                     }
                     break;
@@ -1210,13 +1210,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         /// </summary>
         private void UpdateMuteFb(byte b)
         {
-            var newMute = b == 1;
+			_isMuted = b == 1;
 
-            if (newMute == _isMuted)
-            {
-                return;
-            }
-            _isMuted = newMute;
             MuteFeedback.FireUpdate();
         }
 
