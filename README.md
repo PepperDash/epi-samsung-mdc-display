@@ -46,8 +46,7 @@ This plugin was built using the Samsung SEC-VD-DSW Multiple Display Control docu
 	"name": "Front Display",
 	"type": "samsungmdcplugin",
 	"group": "display",
-	"properties": {
-		"id": "01",
+	"properties": {		
 		"control": {
 			"method": "com",
 			"controlPortDevKey": "processor",
@@ -61,7 +60,24 @@ This plugin was built using the Samsung SEC-VD-DSW Multiple Display Control docu
 				"softwareHandshake": "None",
 				"stopBits": 1
 			}
-		}
+		},
+		"id": "1",
+		"showVolumeControls": true,
+		"volumeUpperLimit": 100,
+		"volumeLowerLimit": 0,
+		"coolingTimeMs": 1500,
+		"warmingTimeMs": 1500,
+		"pollIntervalMs": 60000,
+		"friendlyNames": [
+			{
+				"inputKey": "hdmiIn1",
+				"name": "HDMI 1"
+			},
+			{
+				"inputKey": "hdmiIn2",
+				"name": "HDMI 2"
+			}
+		]
 	}
 },
 ```
@@ -76,7 +92,6 @@ This plugin was built using the Samsung SEC-VD-DSW Multiple Display Control docu
 	"type": "samsungmdcplugin",
 	"group": "display",
 	"properties": {
-		"id": "01",
 		"control": {
 			"method": "tcpIp",
 			"tcpSshProperties": {
@@ -87,7 +102,24 @@ This plugin was built using the Samsung SEC-VD-DSW Multiple Display Control docu
 				"autoReconnect": true,
 				"autoReconnectIntervalMs": 10000
 			}
-		}
+		},
+		"id": "1",
+		"showVolumeControls": true,
+		"volumeUpperLimit": 100,
+		"volumeLowerLimit": 0,
+		"coolingTimeMs": 1500,
+		"warmingTimeMs": 1500,
+		"pollIntervalMs": 60000,
+		"friendlyNames": [
+			{
+				"inputKey": "hdmiIn1",
+				"name": "HDMI 1"
+			},
+			{
+				"inputKey": "hdmiIn2",
+				"name": "HDMI 2"
+			}
+		]
 	}
 },
 ```
