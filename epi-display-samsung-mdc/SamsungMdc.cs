@@ -736,6 +736,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
             trilist.SetUShortSigAction(joinMap.VolumeLevel.JoinNumber, SetVolume);
             VolumeLevelFeedback.LinkInputSig(trilist.UShortInput[joinMap.VolumeLevel.JoinNumber]);
             MuteFeedback.LinkInputSig(trilist.BooleanInput[joinMap.VolumeMuteOn.JoinNumber]);
+            MuteFeedback.LinkInputSig(trilist.BooleanInput[joinMap.VolumeMute.JoinNumber]);
             MuteFeedback.LinkComplementInputSig(trilist.BooleanInput[joinMap.VolumeMuteOff.JoinNumber]);
 
 
