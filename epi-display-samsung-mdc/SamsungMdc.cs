@@ -21,9 +21,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         IBridgeAdvanced, IDeviceInfoProvider
     {
         public const int InputPowerOn = 101;
-
-        public const int InputPowerOff = 102;
-        public static string MinimumEssentialsFrameworkVersion = "1.4.32";
+        public const int InputPowerOff = 102;        
         public static List<string> InputKeys = new List<string>();
         private readonly SamsungMDCDisplayPropertiesConfig _config;
         private readonly uint _coolingTimeMs;

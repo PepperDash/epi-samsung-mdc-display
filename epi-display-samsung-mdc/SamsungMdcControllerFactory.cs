@@ -7,7 +7,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 {
     public class SamsungMdcControllerFactory:EssentialsPluginDeviceFactory<SamsungMdcDisplayController>
     {
-        public SamsungMdcControllerFactory():base()
+        public SamsungMdcControllerFactory()
         {
             MinimumEssentialsFrameworkVersion = "1.6.7";
 
