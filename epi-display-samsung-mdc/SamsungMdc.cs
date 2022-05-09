@@ -34,13 +34,31 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         public IntFeedback CurrentLedTemperatureFahrenheitFeedback;
 
         public List<BoolFeedback> InputFeedback;
-        public IntFeedback InputNumberFeedback;
+
+        
         private RoutingInputPort _currentInputPort;
+
         private int _currentLedTemperatureCelsius;
         private int _currentLedTemperatureFahrenheit;
         private byte[] _incomingBuffer = {};
 
-        private int _inputNumber;
+        public IntFeedback InputNumberFeedback;
+
+		public int CurrentInputNumber
+		{
+			get
+			{
+				return _currentInputNumber;
+			}
+			private set
+			{
+				_currentInputNumber = value;
+				InputNumberFeedback.FireUpdate();
+				UpdateBooleanFeedback();
+			}
+		}
+        private int _currentInputNumber;
+
         private bool _isCoolingDown;
         private bool _isMuted;
         private bool _isPoweringOnIgnorePowerFb;
@@ -89,10 +107,17 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         public byte Id { get; private set; }
         public IntFeedback StatusFeedback { get; set; }
 
-        public int InputNumber
+        public int SetInput
         {
-            get { return _inputNumber; }
-            set { ExecuteSwitch(InputPorts.ElementAt(value).Selector); }
+            get { return CurrentInputNumber; }
+            set 
+			{
+				if (value > 0 && value < InputPorts.Count)
+				{
+					ExecuteSwitch(InputPorts.ElementAt(value - 1).Selector);
+					CurrentInputNumber = value;
+				}
+			}
         }
 
         private bool ScaleVolume { get; set; }
@@ -665,7 +690,18 @@ namespace PepperDash.Plugin.Display.SamsungMdc
             CommunicationMonitor.IsOnlineFeedback.LinkInputSig(trilist.BooleanInput[joinMap.IsOnline.JoinNumber]);
             StatusFeedback.LinkInputSig(trilist.UShortInput[joinMap.Status.JoinNumber]);
    
-			// Power Off
+            // input analog feedback
+            InputNumberFeedback.LinkInputSig(trilist.UShortInput[joinMap.InputSelect.JoinNumber]);
+			// led temperature analog feedback 
+            CurrentLedTemperatureCelsiusFeedback.LinkInputSig(
+                trilist.UShortInput[joinMap.LedTemperatureCelsius.JoinNumber]);
+
+            CurrentLedTemperatureCelsiusFeedback.LinkInputSig(
+                trilist.UShortInput[joinMap.LedTemperatureCelsius.JoinNumber]);
+            
+            CurrentInputFeedback.OutputChange +=
+                (sender, args) => Debug.Console(0, "CurrentInputFeedback_OutputChange {0}", args.StringValue);
+            // Power Off
             trilist.SetSigTrueAction(joinMap.PowerOff.JoinNumber, PowerOff);
             PowerIsOnFeedback.LinkComplementInputSig(trilist.BooleanInput[joinMap.PowerOff.JoinNumber]);
 
@@ -680,8 +716,9 @@ namespace PepperDash.Plugin.Display.SamsungMdc
             foreach (var input in InputPorts)
             {
                 var i = input;
+                var inputIndex = count;
                 trilist.SetSigTrueAction((ushort) (joinMap.InputSelectOffset.JoinNumber + count),
-                    () => ExecuteSwitch(InputPorts[i.Key].Selector));
+                    () => SetInput = inputIndex + 1);
                 
                 var friendlyName = _config.FriendlyNames.FirstOrDefault(n => n.InputKey == i.Key);
 
@@ -708,7 +745,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 				}
 				else if (a > 0 && a < InputPorts.Count)
 				{
-					InputNumber = a + 1;
+					SetInput = a + 1;
 				}
 				else if (a == 102)
 				{
@@ -879,13 +916,13 @@ namespace PepperDash.Plugin.Display.SamsungMdc
             {
                 var j = i;
 
-                InputFeedback.Add(new BoolFeedback(() => _inputNumber == j + 1));
+                InputFeedback.Add(new BoolFeedback(() => CurrentInputNumber == j + 1));
             }
 
             InputNumberFeedback = new IntFeedback(() =>
             {
-                Debug.Console(2, this, "Change Input number {0}", _inputNumber);
-                return _inputNumber;
+                Debug.Console(2, this, "Change Input number {0}", CurrentInputNumber);
+                return CurrentInputNumber;
             });
         }
 
@@ -1169,6 +1206,10 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         private void UpdatePowerFb(byte powerByte)
         {
             var newVal = powerByte == 1;
+            if (!newVal)
+			{
+				CurrentInputNumber = 0;
+			}
             if (newVal == _powerIsOn)
             {
                 return;
@@ -1228,31 +1269,32 @@ namespace PepperDash.Plugin.Display.SamsungMdc
                 switch (key)
                 {
                     case "hdmiIn1":
-                        _inputNumber = 1;
+                        CurrentInputNumber = 1;
                         break;
                     case "hdmiIn2":
-                        _inputNumber = 2;
+                        CurrentInputNumber = 2;
                         break;
                     case "hdmiIn3":
-                        _inputNumber = 3;
+                        CurrentInputNumber = 3;
                         break;
                     case "hdmiIn4":
-                        _inputNumber = 4;
+                        CurrentInputNumber = 4;
                         break;
                     case "displayPortIn1":
-                        _inputNumber = 5;
+                        CurrentInputNumber = 5;
                         break;
                     case "displayPortIn2":
-                        _inputNumber = 6;
+                        CurrentInputNumber = 6;
                         break;
                     case "dviIn":
-                        _inputNumber = 7;
+                        CurrentInputNumber = 7;
                         break;
                 }
+                InputNumberFeedback.FireUpdate();
             }
 
-            InputNumberFeedback.FireUpdate();
-            UpdateBooleanFeedback();
+            
+            
         }
 
         /// <summary>
@@ -1345,8 +1387,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
                 SendBytes(new byte[] {Header, PowerControlCmd, 0x00, 0x01, PowerControlOff, 0x00});
                 _isCoolingDown = true;
                 _powerIsOn = false;
-                _inputNumber = 0;
-                UpdateBooleanFeedback();
+                CurrentInputNumber = 0;
+                
                 InputNumberFeedback.FireUpdate();
                 PowerIsOnFeedback.FireUpdate();
                 IsCoolingDownFeedback.FireUpdate();
