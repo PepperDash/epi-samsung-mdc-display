@@ -544,6 +544,10 @@ namespace PepperDash.Plugin.Display.SamsungMdc
             }
             // The inputs to Scale ensure that byte won't overflow
             SendBytes(new byte[] {Header, VolumeLevelControlCmd, 0x00, 0x01, Convert.ToByte(scaled), 0x00});
+			if (_isMuted)
+			{
+				MuteOff();
+			}
         }
 
         /// <summary>
@@ -597,6 +601,10 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         {
             if (pressRelease)
             {
+				if (_isMuted)
+				{
+					MuteOff();
+				}
                 _volumeIncrementer.StartDown();
                 _volumeIsRamping = true;
             }
@@ -615,6 +623,10 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         {
             if (pressRelease)
             {
+				if (_isMuted)
+				{
+					MuteOff();
+				}
                 _volumeIncrementer.StartUp();
                 _volumeIsRamping = true;
             }
@@ -724,6 +736,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
             trilist.SetUShortSigAction(joinMap.VolumeLevel.JoinNumber, SetVolume);
             VolumeLevelFeedback.LinkInputSig(trilist.UShortInput[joinMap.VolumeLevel.JoinNumber]);
             MuteFeedback.LinkInputSig(trilist.BooleanInput[joinMap.VolumeMuteOn.JoinNumber]);
+            MuteFeedback.LinkInputSig(trilist.BooleanInput[joinMap.VolumeMute.JoinNumber]);
             MuteFeedback.LinkComplementInputSig(trilist.BooleanInput[joinMap.VolumeMuteOff.JoinNumber]);
 
 
@@ -1014,7 +1027,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
                     if (Debug.Level == 2)
                     {
                         // This check is here to prevent following string format from building unnecessarily on level 0 or 1
-                        Debug.Console(2, this, "StatusControlCmd Power{0}, Mute{1}, Volume{2} Input{3}", message[6],
+                        Debug.Console(2, this, "StatusControlCmd Power{0}, Mute{2}, Volume{1} Input{3}", message[6],
                             message[7], message[8], message[9]);
                     }
                     break;
@@ -1198,13 +1211,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         /// </summary>
         private void UpdateMuteFb(byte b)
         {
-            var newMute = b == 1;
+			_isMuted = b == 1;
 
-            if (newMute == _isMuted)
-            {
-                return;
-            }
-            _isMuted = newMute;
             MuteFeedback.FireUpdate();
         }
 
