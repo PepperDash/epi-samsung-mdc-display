@@ -33,17 +33,36 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         public IntFeedback CurrentLedTemperatureCelsiusFeedback;
         public IntFeedback CurrentLedTemperatureFahrenheitFeedback;
 
-        public List<BoolFeedback> InputFeedback;
 
-        
-        private RoutingInputPort _currentInputPort;
-
-        private int _currentLedTemperatureCelsius;
+        private readonly bool _pollLedTemps;
+        private int _currentLedTemperatureCelsius;        
+        public int CurrentLedTemperatureCelsius
+        {
+            get { return _currentLedTemperatureCelsius; }
+            set
+            {
+                _currentLedTemperatureCelsius = value;
+                CurrentLedTemperatureCelsiusFeedback.FireUpdate();
+            }
+        }
         private int _currentLedTemperatureFahrenheit;
+        public int CurrentLedTemperatureFahrenheit
+        {
+            get { return _currentLedTemperatureFahrenheit; }
+            set
+            {
+                _currentLedTemperatureFahrenheit = value;
+                CurrentLedTemperatureFahrenheitFeedback.FireUpdate();
+            }
+        }
+
         private byte[] _incomingBuffer = {};
 
+        public List<BoolFeedback> InputFeedback;
+        private RoutingInputPort _currentInputPort;
+        
         public IntFeedback InputNumberFeedback;
-
+        private int _currentInputNumber;
 		public int CurrentInputNumber
 		{
 			get
@@ -56,8 +75,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 				InputNumberFeedback.FireUpdate();
 				UpdateBooleanFeedback();
 			}
-		}
-        private int _currentInputNumber;
+		}        
 
         private bool _isCoolingDown;
         private bool _isMuted;
@@ -72,7 +90,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         private bool _volumeIsRamping;
         private ushort _volumeLevelForSig;
 
-		private bool _showVolumeControls;
+		private readonly bool _showVolumeControls;
 
         /// <summary>
         /// Constructor for IBaseCommunication
@@ -81,7 +99,6 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         /// <param name="config"></param>
         /// <param name="key"></param>
         /// <param name="comms"></param>
-        //public SamsungMdcDisplayController(string key, string name, DeviceConfig config) : base(key, name)
         public SamsungMdcDisplayController(string key, string name, SamsungMDCDisplayPropertiesConfig config,
             IBasicCommunication comms)
             : base(key, name)
@@ -98,6 +115,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
             _coolingTimeMs = _config.coolingTimeMs;
             _warmingTimeMs = _config.warmingTimeMs;
 			_showVolumeControls = _config.showVolumeControls;
+            _pollLedTemps = config.pollLedTemps;
 
             DeviceInfo = new DeviceInfo();
             Init();
@@ -122,25 +140,6 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 
         private bool ScaleVolume { get; set; }
 
-        public int CurrentLedTemperatureCelsius
-        {
-            get { return _currentLedTemperatureCelsius; }
-            set
-            {
-                _currentLedTemperatureCelsius = value;
-                CurrentLedTemperatureCelsiusFeedback.FireUpdate();
-            }
-        }
-
-        public int CurrentLedTemperatureFahrenheit
-        {
-            get { return _currentLedTemperatureFahrenheit; }
-            set
-            {
-                _currentLedTemperatureFahrenheit = value;
-                CurrentLedTemperatureFahrenheitFeedback.FireUpdate();
-            }
-        }
 
         protected override Func<bool> PowerIsOnFeedbackFunc
         {
@@ -532,15 +531,28 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         /// Led Product Feature (Cmd: 0xD0) pdg page 221
         /// LED Product Features has a subset of commands available
         /// </summary>
-        public const byte LedProductCmd = 0xD0;
+        public const byte LedMonitoringCmd = 0xD0;
 
-        // <summary>
-        // Monitoring Temperature (Sub Cmd: 0x84) pdf page 228		
-        // Gets LED Product status, status includes: val1=Power&IC, val2=HDBaseT_Status, val3=Temperature, val4=Illuminance, val5=Module1, val6=Module1_LED_Error_Data,.... valN=ModuleX, valN+1=ModuleX_LED_Error_Data\
-        // Temperature range 0C-254C
-        // Illuminance range 0d - 100d (0x00 - 0x64)
-        // </summary>
-        public const byte LedProductMonitoringCmd = 0x84;
+        /// <summary>
+        /// Monitoring (Sub CMD 0x84, 2.1.D0.84 Monitoring, pdf page 228 or 244)       
+        /// Gets LED Product status, status includes: val1=Power&IC, val2=HDBaseT_Status, val3=Temperature, val4=Illuminance, val5=Module1, val6=Module1_LED_Error_Data,.... valN=ModuleX, valN+1=ModuleX_LED_Error_Data\
+        /// Temperature range 0C-254C
+        /// Illuminance range 0d - 100d (0x00 - 0x64)
+        /// </summary>
+        public const byte LedMonitoringSubCmd = 0x84;
+
+        public const byte LedMonitoringModule1 = 0x1E;
+        public const byte LedMonitoringModule2 = 0x2E;
+        public const byte LedMonitoringModule3 = 0x3E;
+        public const byte LedMonitoringModule4 = 0x4E;
+        public const byte LedMonitoringModule5 = 0x5E;
+        public const byte LedMonitoringModule6 = 0x6E;
+        public const byte LedMonitoringModule7 = 0x7E;
+        public const byte LedMonitoringModule8 = 0x8E;
+        public const byte LedMonitoringModule9 = 0x9E;
+        public const byte LedMonitoringModule10 = 0xAE;
+        public const byte LedMonitoringModule11 = 0xBE;
+        public const byte LedMonitoringModule12 = 0xCE;
 
         #endregion
 
@@ -689,18 +701,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 
             CommunicationMonitor.IsOnlineFeedback.LinkInputSig(trilist.BooleanInput[joinMap.IsOnline.JoinNumber]);
             StatusFeedback.LinkInputSig(trilist.UShortInput[joinMap.Status.JoinNumber]);
-   
-            // input analog feedback
-            InputNumberFeedback.LinkInputSig(trilist.UShortInput[joinMap.InputSelect.JoinNumber]);
-			// led temperature analog feedback 
-            CurrentLedTemperatureCelsiusFeedback.LinkInputSig(
-                trilist.UShortInput[joinMap.LedTemperatureCelsius.JoinNumber]);
-
-            CurrentLedTemperatureCelsiusFeedback.LinkInputSig(
-                trilist.UShortInput[joinMap.LedTemperatureCelsius.JoinNumber]);
             
-            CurrentInputFeedback.OutputChange +=
-                (sender, args) => Debug.Console(0, "CurrentInputFeedback_OutputChange {0}", args.StringValue);
+            
             // Power Off
             trilist.SetSigTrueAction(joinMap.PowerOff.JoinNumber, PowerOff);
             PowerIsOnFeedback.LinkComplementInputSig(trilist.BooleanInput[joinMap.PowerOff.JoinNumber]);
@@ -712,7 +714,6 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 
             // Input digitals
             var count = 0;
-
             foreach (var input in InputPorts)
             {
                 var i = input;
@@ -754,13 +755,12 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 				Debug.Console(2, this, "InputChange {0}", a);
 			});
 
+            // input analog feedback
+            InputNumberFeedback.LinkInputSig(trilist.UShortInput[joinMap.InputSelect.JoinNumber]);
+            InputNumberFeedback.LinkInputSig(trilist.UShortInput[joinMap.InputSelect.JoinNumber]);
+            CurrentInputFeedback.OutputChange +=
+                (sender, args) => Debug.Console(0, "CurrentInputFeedback_OutputChange {0}", args.StringValue);           			
 
-			// Input Analog feedback
-			InputNumberFeedback.LinkInputSig(trilist.UShortInput[joinMap.InputSelect.JoinNumber]);
-
-			CurrentInputFeedback.OutputChange +=
-				(sender, args) => Debug.Console(0, "CurrentInputFeedback_OutputChange {0}", args.StringValue);
-    
 
             // Volume
             trilist.SetBoolSigAction(joinMap.VolumeUp.JoinNumber, VolumeUp);
@@ -774,22 +774,20 @@ namespace PepperDash.Plugin.Display.SamsungMdc
             MuteFeedback.LinkInputSig(trilist.BooleanInput[joinMap.VolumeMute.JoinNumber]);
             MuteFeedback.LinkComplementInputSig(trilist.BooleanInput[joinMap.VolumeMuteOff.JoinNumber]);
 
+            // Show Volume Controls
+            trilist.SetBool(joinMap.VolumeControlsVisibleFb.JoinNumber, _showVolumeControls);
+            trilist.OnlineStatusChange += (d, args) =>
+            {
+                if (!args.DeviceOnLine) return;
+                trilist.SetBool(joinMap.VolumeControlsVisibleFb.JoinNumber, _showVolumeControls);
+            };
 
 			// LED temperature analog feedback 
 			CurrentLedTemperatureCelsiusFeedback.LinkInputSig(
-				trilist.UShortInput[joinMap.LedTemperatureCelsius.JoinNumber]);
-			//CurrentLedTemperatureCelsiusFeedback.LinkInputSig(
-			//    trilist.UShortInput[joinMap.LedTemperatureCelsius.JoinNumber]);
+                trilist.UShortInput[joinMap.LedTemperatureCelsius.JoinNumber]);
 
-
-			// Show Volume Controls
-			trilist.SetBool(joinMap.VolumeControlsVisibleFb.JoinNumber, _showVolumeControls);
-			trilist.OnlineStatusChange += (d, args) =>
-			{
-				if (!args.DeviceOnLine) return;
-				trilist.SetBool(joinMap.VolumeControlsVisibleFb.JoinNumber, _showVolumeControls);
-			};
-
+            CurrentLedTemperatureCelsiusFeedback.LinkInputSig(
+                trilist.UShortInput[joinMap.LedTemperatureCelsius.JoinNumber]);       
         }
 
         #endregion
@@ -799,19 +797,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         public StatusMonitorBase CommunicationMonitor { get; private set; }
 
         #endregion
-
-        //public static void LoadPlugin()
-        //{
-        //    DeviceFactory.AddFactoryForType("samsungmdcplugin", BuildDevice);
-        //}
-
-        //public static SamsungMdcDisplayController BuildDevice(DeviceConfig dc)
-        //{
-        //    //var config = JsonConvert.DeserializeObject<DeviceConfig>(dc.Properties.ToString());
-        //    var newMe = new SamsungMdcDisplayController(dc);
-        //    return newMe;
-        //}
-
+        
         /// <summary>
         /// Add routing input port 
         /// </summary>
@@ -1091,10 +1077,33 @@ namespace PepperDash.Plugin.Display.SamsungMdc
                     UpdateInputFb(message[6]);
                     break;
                 }
-                    // LED product monitor
-                case LedProductMonitoringCmd:
+                    // Monitoring (Sub CMD 0x84, 2.1.D0.84 Monitoring, pdf page 228 or 244)       
+                    // msg[0] = Header, 0xAA
+                    // msg[1] = Command, 0xFF
+                    // msg[2] = ID
+                    // msg[3] = Data Length
+                    // msg[4] = Ack/Nack
+                    // msg[5] = r-CMD, 0xD0
+                    // msg[6] = Sub CMD, 0x84
+                    // msg[7] = va1, power&IC
+                    // msg[8] = val2, HDBT status
+                    // msg[9] = val3, Temperature
+                    // msg[10] = val4, illuminance
+                    // msg[11] = val5, module1
+                    // msg[12] = val6, module1 LED error data
+                    // msg[13] = val7, module2
+                    // msg[14] = val8, module2 LED error data
+                    // msg[n] = val-n, moduleN
+                    // msg[n+1] = val-n+1, moduleN LED error data
+                case LedMonitoringCmd:
                 {
-                    UpdateLedTemperatureFb(message[6]);
+                    Debug.Console(1, this, "LedMonitoringCmd SubCmd{0} DataLen{1}", message[6], message[3]);
+
+                    if (message[6] == LedMonitoringSubCmd)
+                    {
+                        Debug.Console(1, this, "LedMonitoringCmd SubCmd{0} Temperature{1}", message[6], message[9]);
+                        UpdateLedTemperatureFb(message[9]);    
+                    }                    
                     break;
                 }
                 case 0x0b: //Serial Number
@@ -1341,11 +1350,9 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         {
             //SendBytes(new byte[] { Header, StatusControlCmd, 0x00, 0x00, StatusControlGet, 0x00 });
             SendBytes(new byte[] {Header, 0x00, 0x00, 0x00, 0x00});
-            /*
-            PowerGet();
-            _pollRing = null;
-            _pollRing = new CTimer(o => InputGet(), null, 1000);
-            */
+           
+            if(_pollLedTemps) 
+                SendBytes(new byte[] {Header, LedMonitoringCmd, Id, 0x01, LedMonitoringSubCmd});
         }
 
         /// <summary>
@@ -1536,7 +1543,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         /// </summary>
         public void LedProductMonitorGet()
         {
-            SendBytes(new byte[] {Header, LedProductCmd, 0x00, 0x01, LedProductMonitoringCmd, 0x00});
+            SendBytes(new byte[] {Header, LedMonitoringCmd, 0x00, 0x01, LedMonitoringSubCmd, 0x00});
         }
 
         /// <summary>
@@ -1555,13 +1562,19 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         }
 
         private double ConvertCelsiusToFahrenheit(double c)
-        {
-            return ((9.0/5.0)*c) + 32;
+        {            
+            var f = ((c*9)/5) + 32;
+            Debug.Console(1, "ConvertCelsiusToFahrenheit: Fahrenheit = {0}, Celsius = {1}", f, c);
+
+            return f;
         }
 
-        private double ConvertFahrenehitToCelsius(double f)
+        private double ConvertFahrenheitToCelsius(double f)
         {
-            return (5.0/9.0)*(f - 32);
+            var c = (f - 32)*5/9;
+            Debug.Console(1, "ConvertFahrenheitToCelsius: Fahrenheit = {0}, Celsius = {1}", f, c);
+
+            return c;
         }
 
         /// <summary>
