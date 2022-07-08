@@ -697,7 +697,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
             Debug.Console(1, "Linking to Trilist '{0}'", trilist.ID.ToString("X"));
             Debug.Console(0, "Linking to Display: {0}", Name);
 
-            trilist.StringInput[joinMap.Name.JoinNumber].StringValue = Name;
+            //trilist.StringInput[joinMap.Name.JoinNumber].StringValue = Name;
+            trilist.SetString(joinMap.Name.JoinNumber, Name);
 
             CommunicationMonitor.IsOnlineFeedback.LinkInputSig(trilist.BooleanInput[joinMap.IsOnline.JoinNumber]);
             StatusFeedback.LinkInputSig(trilist.UShortInput[joinMap.Status.JoinNumber]);
@@ -759,7 +760,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
             InputNumberFeedback.LinkInputSig(trilist.UShortInput[joinMap.InputSelect.JoinNumber]);
             InputNumberFeedback.LinkInputSig(trilist.UShortInput[joinMap.InputSelect.JoinNumber]);
             CurrentInputFeedback.OutputChange +=
-                (sender, args) => Debug.Console(0, "CurrentInputFeedback_OutputChange {0}", args.StringValue);           			
+                (sender, args) => Debug.Console(1, "CurrentInputFeedback: {0}", args.StringValue);           			
 
 
             // Volume
@@ -776,18 +777,39 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 
             // Show Volume Controls
             trilist.SetBool(joinMap.VolumeControlsVisibleFb.JoinNumber, _showVolumeControls);
-            trilist.OnlineStatusChange += (d, args) =>
-            {
-                if (!args.DeviceOnLine) return;
-                trilist.SetBool(joinMap.VolumeControlsVisibleFb.JoinNumber, _showVolumeControls);
-            };
 
-			// LED temperature analog feedback 
-			CurrentLedTemperatureCelsiusFeedback.LinkInputSig(
+            // LED temperature analog feedback 
+            CurrentLedTemperatureCelsiusFeedback.LinkInputSig(
                 trilist.UShortInput[joinMap.LedTemperatureCelsius.JoinNumber]);
 
             CurrentLedTemperatureCelsiusFeedback.LinkInputSig(
-                trilist.UShortInput[joinMap.LedTemperatureCelsius.JoinNumber]);       
+                trilist.UShortInput[joinMap.LedTemperatureCelsius.JoinNumber]); 
+
+            // bridge online change
+            trilist.OnlineStatusChange += (sender, args) =>
+            {
+                if (!args.DeviceOnLine) return;
+                
+                trilist.SetString(joinMap.Name.JoinNumber, Name);
+
+                PowerIsOnFeedback.FireUpdate();
+                CurrentInputFeedback.FireUpdate();
+
+                var port = 0;
+                foreach (var inputPort in InputPorts)
+                {                    
+                    InputFeedback[port].FireUpdate();
+                    port++;
+                }
+                InputNumberFeedback.FireUpdate();
+
+                trilist.SetBool(joinMap.VolumeControlsVisibleFb.JoinNumber, _showVolumeControls);
+                VolumeLevelFeedback.FireUpdate();
+                MuteFeedback.FireUpdate();
+
+                CurrentLedTemperatureCelsiusFeedback.FireUpdate();
+                CurrentLedTemperatureFahrenheitFeedback.FireUpdate();
+            };		      
         }
 
         #endregion
@@ -1020,6 +1042,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 
         private void ParseMessage(byte[] message)
         {
+            // input ack rx: {header}{command}{id}{dataLen}{ack/nak}{r-cmd}{val-1}{checksum}
+            // input ack rx: { 0xAA }{ 0xFF  }{id}{ 0x03  }{'A'/'N'}{ 0x14}{input}{checksum}
             var command = message[5];
 
             if (Debug.Level == 2)
@@ -1030,7 +1054,7 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 
             switch (command)
             {
-                    // General status
+                // General status
                 case StatusControlCmd:
                 {
                     //UpdatePowerFB(message[2], message[5]); // "power" can be misrepresented when the display sleeps
@@ -1053,48 +1077,48 @@ namespace PepperDash.Plugin.Display.SamsungMdc
                     }
                     break;
                 }
-                    // Power status
+                // Power status
                 case PowerControlCmd:
                 {
                     UpdatePowerFb(message[6]);
                     break;
                 }
-                    // Volume level
+                // Volume level
                 case VolumeLevelControlCmd:
                 {
                     UpdateVolumeFb(message[6]);
                     break;
                 }
-                    // Volume mute status
+                // Volume mute status
                 case VolumeMuteControlCmd:
                 {
                     UpdateMuteFb(message[6]);
                     break;
                 }
-                    // Input status
+                // Input status
                 case InputControlCmd:
                 {
                     UpdateInputFb(message[6]);
                     break;
                 }
-                    // Monitoring (Sub CMD 0x84, 2.1.D0.84 Monitoring, pdf page 228 or 244)       
-                    // msg[0] = Header, 0xAA
-                    // msg[1] = Command, 0xFF
-                    // msg[2] = ID
-                    // msg[3] = Data Length
-                    // msg[4] = Ack/Nack
-                    // msg[5] = r-CMD, 0xD0
-                    // msg[6] = Sub CMD, 0x84
-                    // msg[7] = va1, power&IC
-                    // msg[8] = val2, HDBT status
-                    // msg[9] = val3, Temperature
-                    // msg[10] = val4, illuminance
-                    // msg[11] = val5, module1
-                    // msg[12] = val6, module1 LED error data
-                    // msg[13] = val7, module2
-                    // msg[14] = val8, module2 LED error data
-                    // msg[n] = val-n, moduleN
-                    // msg[n+1] = val-n+1, moduleN LED error data
+                // Monitoring (Sub CMD 0x84, 2.1.D0.84 Monitoring, pdf page 228 or 244)       
+                // msg[0] = Header, 0xAA
+                // msg[1] = Command, 0xFF
+                // msg[2] = ID
+                // msg[3] = Data Length
+                // msg[4] = Ack/Nack
+                // msg[5] = r-CMD, 0xD0
+                // msg[6] = Sub CMD, 0x84
+                // msg[7] = va1, power&IC
+                // msg[8] = val2, HDBT status
+                // msg[9] = val3, Temperature
+                // msg[10] = val4, illuminance
+                // msg[11] = val5, module1
+                // msg[12] = val6, module1 LED error data
+                // msg[13] = val7, module2
+                // msg[14] = val8, module2 LED error data
+                // msg[n] = val-n, moduleN
+                // msg[n+1] = val-n+1, moduleN LED error data
                 case LedMonitoringCmd:
                 {
                     Debug.Console(1, this, "LedMonitoringCmd SubCmd{0} DataLen{1}", message[6], message[3]);
@@ -1106,7 +1130,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
                     }                    
                     break;
                 }
-                case 0x0b: //Serial Number
+                //Serial Number
+                case 0x0b: 
                 {
                     var serialNumber = new byte[18];
                     Array.Copy(message, 6, serialNumber, 0, 18);
@@ -1114,7 +1139,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
                     UpdateSerialNumber(serialNumber);
                     break;
                 }
-                case 0x0E: //firmware version;
+                //firmware version;
+                case 0x0E: 
                 {
                     var length = message[3];
 
@@ -1125,7 +1151,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
                     UpdateFirmwareVersion(firmware);
                     break;
                 }
-                case 0x1B: //network info
+                //network info
+                case 0x1B: 
                 {
                     var length = message[3];
                     if (message[4] == 0x82)
@@ -1150,7 +1177,6 @@ namespace PepperDash.Plugin.Display.SamsungMdc
 
                     break;
                 }
-
                 default:
                 {
                     Debug.Console(1, this, "Unknown message: {0}", ComTextHelper.GetEscapedText(message));
