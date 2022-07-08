@@ -131,9 +131,11 @@ namespace PepperDash.Plugin.Display.SamsungMdc
             set 
 			{
 				if (value > 0 && value < InputPorts.Count)
-				{
+				{				    
 					ExecuteSwitch(InputPorts.ElementAt(value - 1).Selector);
 					CurrentInputNumber = value;
+                    
+                    UpdateInputFb((byte)InputPorts.ElementAt(value - 1).FeedbackMatchObject);
 				}
 			}
         }
@@ -803,12 +805,12 @@ namespace PepperDash.Plugin.Display.SamsungMdc
                 }
                 InputNumberFeedback.FireUpdate();
 
-                trilist.SetBool(joinMap.VolumeControlsVisibleFb.JoinNumber, _showVolumeControls);
+                trilist.SetBool(joinMap.VolumeControlsVisibleFb.JoinNumber, _showVolumeControls);                
                 VolumeLevelFeedback.FireUpdate();
                 MuteFeedback.FireUpdate();
 
                 CurrentLedTemperatureCelsiusFeedback.FireUpdate();
-                CurrentLedTemperatureFahrenheitFeedback.FireUpdate();
+                CurrentLedTemperatureFahrenheitFeedback.FireUpdate();               
             };		      
         }
 
@@ -836,8 +838,8 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         /// </summary>
         private void Init()
         {
-            WarmupTime = _warmingTimeMs > 0 ? _warmingTimeMs : 10000;
-            CooldownTime = _coolingTimeMs > 0 ? _coolingTimeMs : 8000;
+            WarmupTime = _warmingTimeMs > 0 ? _warmingTimeMs : 15000;
+            CooldownTime = _coolingTimeMs > 0 ? _coolingTimeMs : 15000;
 
             InitCommMonitor();
 
