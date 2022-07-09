@@ -881,7 +881,7 @@ namespace PepperDashPluginSamsungMdcDisplay
 
 
 
-        #region InputPorts and Inputs
+        #region Inputs, InputPorts and ExecuteSwitch
 
         /// <summary>
         /// Add routing input port 
@@ -892,6 +892,43 @@ namespace PepperDashPluginSamsungMdcDisplay
         {
             port.FeedbackMatchObject = fbMatch;
             InputPorts.Add(port);
+        }
+
+        /// <summary>
+        /// Executes a switch, turning on display if necessary.
+        /// </summary>
+        /// <param name="selector"></param>
+        public override void ExecuteSwitch(object selector)
+        {
+            if (_powerIsOn)
+            {
+                var action = selector as Action;
+                if (action != null)
+                {
+                    action();
+                }
+            }
+            else // if power is off, wait until we get on FB to send it. 
+            {
+                // One-time event handler to wait for power on before executing switch
+                EventHandler<FeedbackEventArgs> handler = null; // necessary to allow reference inside lambda to handler
+                handler = (o, a) =>
+                {
+                    if (_isWarmingUp)
+                    {
+                        return;
+                    }
+
+                    IsWarmingUpFeedback.OutputChange -= handler;
+                    var action = selector as Action;
+                    if (action != null)
+                    {
+                        action();
+                    }
+                };
+                IsWarmingUpFeedback.OutputChange += handler; // attach and wait for on FB
+                PowerOn();
+            }
         }
 
         /// <summary>
@@ -1315,85 +1352,7 @@ namespace PepperDashPluginSamsungMdcDisplay
             return c;
         }
 
-        #endregion
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        /// <summary>
-        /// Executes a switch, turning on display if necessary.
-        /// </summary>
-        /// <param name="selector"></param>
-        public override void ExecuteSwitch(object selector)
-        {
-            //if (!(selector is Action))
-            //    Debug.Console(DebugLevelDebug, this, "WARNING: ExecuteSwitch cannot handle type {0}", selector.GetType());
-
-            if (_powerIsOn)
-            {
-                var action = selector as Action;
-                if (action != null)
-                {
-                    action();
-                }
-            }
-            else // if power is off, wait until we get on FB to send it. 
-            {
-                // One-time event handler to wait for power on before executing switch
-                EventHandler<FeedbackEventArgs> handler = null; // necessary to allow reference inside lambda to handler
-                handler = (o, a) =>
-                {
-                    if (_isWarmingUp)
-                    {
-                        return;
-                    }
-
-                    IsWarmingUpFeedback.OutputChange -= handler;
-                    var action = selector as Action;
-                    if (action != null)
-                    {
-                        action();
-                    }
-                };
-                IsWarmingUpFeedback.OutputChange += handler; // attach and wait for on FB
-                PowerOn();
-            }
-        }
+        #endregion       
 
 
 
