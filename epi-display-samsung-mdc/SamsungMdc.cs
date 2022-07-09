@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using Crestron.SimplSharp;
 using Crestron.SimplSharpPro.DeviceSupport;
+using Crestron.SimplSharpPro.DM;
 using Newtonsoft.Json;
 using PepperDash.Core;
 using PepperDash.Essentials.Core;
@@ -28,11 +29,10 @@ namespace PepperDashPluginSamsungMdcDisplay
         public IntFeedback StatusFeedback { get; set; }
 
         private readonly SamsungMDCDisplayPropertiesConfig _config;
-        public byte Id { get; private set; }
-        private readonly long _pollIntervalMs;
+        public byte Id { get; private set; }        
         private readonly uint _coolingTimeMs;
         private readonly uint _warmingTimeMs;
-
+        private readonly long _pollIntervalMs;
         private CTimer _pollRing;
 
 
@@ -94,6 +94,8 @@ namespace PepperDashPluginSamsungMdcDisplay
             {
                 if (value <= 0 || value >= InputPorts.Count) return;
 
+                Debug.Console(DebugLevelDebug, this, "SetInput: value-'{0}'", value);
+
                 // -1 to get actual input after'0d' check                
                 var port = GetInputPort(value - 1);
                 if (port == null)
@@ -113,6 +115,16 @@ namespace PepperDashPluginSamsungMdcDisplay
         private RoutingInputPort GetInputPort(int input)
         {
             return InputPorts.ElementAt(input);
+        }
+
+        public void ListInputPorts()
+        {            
+            Debug.Console(DebugLevelTrace, this, "InputPorts.Count-'{0}'", InputPorts.Count);            
+            foreach (var inputPort in InputPorts)
+            {
+                Debug.Console(DebugLevelTrace, this, "inputPort.Key-'{0}', inputPort.Selector-'{1}', inputPort.ConnectionType-'{2}', inputPort.FeedbackMatchObject-'{3}'",
+                    inputPort.Key, inputPort.Selector, inputPort.ConnectionType, inputPort.FeedbackMatchObject);
+            }
         }
 
         public const int InputPowerOn = 101;
@@ -259,8 +271,7 @@ namespace PepperDashPluginSamsungMdcDisplay
                 trilist.SetSigTrueAction((ushort)(joinMap.InputSelectOffset.JoinNumber + count), () =>
                     {
                         Debug.Console(DebugLevelVerbose, this, "InputSelect Digital-'{0}'", inputIndex);
-                        // +1 is to avoid '0d' check
-                        SetInput = inputIndex + 1;
+                        SetInput = inputIndex;
                     });
 
                 var friendlyName = _config.FriendlyNames.FirstOrDefault(n => n.InputKey == i.Key);
@@ -282,24 +293,8 @@ namespace PepperDashPluginSamsungMdcDisplay
             // Input Analog
             trilist.SetUShortSigAction(joinMap.InputSelect.JoinNumber, a =>
             {
-                Debug.Console(DebugLevelVerbose, this, "InputSelect Analog-'{0}'", a);
-                // +1 is to avoid '0d' check
-                SetInput = a + 1;
-
-                //if (a == 0)
-                //{
-                //    PowerOff();
-                //}
-                //else if (a > 0 && a < InputPorts.Count)
-                //{
-                //    // +1 is to avoid '0d' check
-                //    SetInput = a + 1;
-                //}
-                //else if (a == 102)
-                //{
-                //    PowerToggle();
-                //}
-                //Debug.Console(DebugLevelVerbose, this, "InputChange {0}", a);
+                Debug.Console(DebugLevelVerbose, this, "InputSelect Analog-'{0}'", a);                
+                SetInput = a;
             });
 
             // input analog feedback
@@ -733,14 +728,13 @@ namespace PepperDashPluginSamsungMdcDisplay
 
             for (var i = 0; i < InputPorts.Count; i++)
             {
-                var j = i;
-
-                InputFeedback.Add(new BoolFeedback(() => CurrentInputNumber == j + 1));
+                var j = i + 1;
+                InputFeedback.Add(new BoolFeedback(() => CurrentInputNumber == j));
             }
 
             InputNumberFeedback = new IntFeedback(() =>
             {
-                Debug.Console(DebugLevelVerbose, this, "Change Input number {0}", CurrentInputNumber);
+                Debug.Console(DebugLevelVerbose, this, "InputNumberFeedback: CurrentInputNumber-'{0}'", CurrentInputNumber);
                 return CurrentInputNumber;
             });
         }
@@ -768,12 +762,15 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// Get: [HEADER=0xAA][Cmd=0x00][ID][DATA_LEN=0x00][CS=0x00]
         /// </summary>
         public void StatusGet()
-        {
-            //SendBytes(new byte[] { Header, StatusControl, 0x00, 0x00, StatusControlRcmd, 0x00 });
-            SendBytes(new byte[] { SamsungMdcCommands.Header, 0x00, 0x00, 0x00, 0x00 });
+        {            
+            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.StatusControl, 0x00, 0x00, 0x00 });
+
+            //_pollRing = null;
+            //PollRing = new CTimer(o => VolumeGet(), null, 1000);
+            //_pollRing = new CTimer(o => LedProductMonitorGet(), null, 10000);
 
             if (_pollLedTemps)
-                SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.LedProductFeature, Id, 0x01, SamsungMdcCommands.LedSubcmdMonitoring });
+                SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.LedProductFeature, 0x00, 0x01, SamsungMdcCommands.LedSubcmdMonitoring, 0x00 });
         }
 
 
@@ -1000,11 +997,7 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// </summary>
         public void InputGet()
         {
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.InputSourceControl, 0x00, 0x00, 0x00 });
-
-            _pollRing = null;
-            //PollRing = new CTimer(o => VolumeGet(), null, 1000);
-            _pollRing = new CTimer(o => LedProductMonitorGet(), null, 10000);
+            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.InputSourceControl, 0x00, 0x00, 0x00 });            
         }
 
         /// <summary>
