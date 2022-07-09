@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using Newtonsoft.Json;
 
-namespace PepperDash.Plugin.Display.SamsungMdc
+namespace PepperDashPluginSamsungMdcDisplay
 {
     public class SamsungMDCDisplayPropertiesConfig
     {

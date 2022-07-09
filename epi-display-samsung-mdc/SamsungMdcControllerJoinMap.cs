@@ -1,7 +1,7 @@
 ﻿using PepperDash.Essentials.Core;
 using PepperDash.Essentials.Core.Bridges;
 
-namespace PepperDash.Plugin.Display.SamsungMdc
+namespace PepperDashPluginSamsungMdcDisplay
 {
     public class SamsungDisplayControllerJoinMap : DisplayControllerJoinMap
     {
