@@ -1,13 +1,12 @@
 ﻿using System.Collections.Generic;
 using Newtonsoft.Json;
-using System;
 
-namespace PepperDash.Plugin.Display.SamsungMdc
+namespace PepperDashPluginSamsungMdcDisplay
 {
-	public class SamsungMDCDisplayPropertiesConfig
-	{
-		[JsonProperty("id")]
-		public string Id { get; set; }
+    public class SamsungMDCDisplayPropertiesConfig
+    {
+        [JsonProperty("id")]
+        public string Id { get; set; }
 
         [JsonProperty("volumeUpperLimit")]
         public int volumeUpperLimit { get; set; }
@@ -24,19 +23,20 @@ namespace PepperDash.Plugin.Display.SamsungMdc
         [JsonProperty("warmingTimeMs")]
         public uint warmingTimeMs { get; set; }
 
+        [JsonProperty("showVolumeControls")]
+        public bool showVolumeControls { get; set; }
 
-		    [JsonProperty("showVolumeControls")]
-		    public bool showVolumeControls { get; set; }
+        [JsonProperty("pollLedTemps")]
+        public bool pollLedTemps { get; set; }
 
         [JsonProperty("friendlyNames")]
         public List<FriendlyName> FriendlyNames { get; set; }
 
-	    public SamsungMDCDisplayPropertiesConfig()
-	    {
-	        FriendlyNames = new List<FriendlyName>();
-	    }
-
-	}
+        public SamsungMDCDisplayPropertiesConfig()
+        {
+            FriendlyNames = new List<FriendlyName>();
+        }
+    }
 
     public class FriendlyName
     {

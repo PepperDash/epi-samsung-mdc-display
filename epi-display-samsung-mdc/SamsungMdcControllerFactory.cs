@@ -2,12 +2,13 @@
 using PepperDash.Core;
 using PepperDash.Essentials.Core;
 using PepperDash.Essentials.Core.Config;
+using PepperDashPluginSamsungMdcDisplay;
 
-namespace PepperDash.Plugin.Display.SamsungMdc
+namespace PepperDashPluginSamsungMdcDisplay
 {
     public class SamsungMdcControllerFactory:EssentialsPluginDeviceFactory<SamsungMdcDisplayController>
     {
-        public SamsungMdcControllerFactory():base()
+        public SamsungMdcControllerFactory()
         {
             MinimumEssentialsFrameworkVersion = "1.6.7";
 
