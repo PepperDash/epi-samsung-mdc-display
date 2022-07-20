@@ -66,7 +66,7 @@ namespace PepperDashPluginSamsungMdcDisplay
         private RoutingInputPort _currentInputPort;
         protected override Func<string> CurrentInputFeedbackFunc
         {
-            get { return () => _currentInputPort.Key; }
+	        get { return () => _currentInputPort != null ? _currentInputPort.Key : string.Empty; }	        
         }
 
         private int _currentInputNumber;
