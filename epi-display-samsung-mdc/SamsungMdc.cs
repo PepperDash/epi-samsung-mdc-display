@@ -237,6 +237,9 @@ namespace PepperDashPluginSamsungMdcDisplay
         {
             var joinMap = new SamsungDisplayControllerJoinMap(joinStart);
 
+            if (bridge != null)
+                bridge.AddJoinMap(Key, joinMap);
+
             var joinMapSerialized = JoinMapHelper.GetSerializedJoinMapForDevice(joinMapKey);
 
             if (!string.IsNullOrEmpty(joinMapSerialized))
