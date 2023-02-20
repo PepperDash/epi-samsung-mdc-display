@@ -1,0 +1,20 @@
+[
+    {
+        "Name": "FirendlyName-Proc1",
+        "Device": "Processor",
+        "Model": "RMC3",
+        "Configuration": "",
+        "Address": "10.1.10.115",
+        "Username": "crestron",
+        "Password": ""
+    },
+        {
+        "Name": "FirendlyName-Proc2",
+        "Device": "Processor",
+        "Model": "PRO3",
+        "Configuration": "",
+        "Address": "10.1.10.117",
+        "Username": "crestron",
+        "Password": ""
+    }
+]

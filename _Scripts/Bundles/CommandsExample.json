@@ -1,0 +1,42 @@
+[
+    {
+        "commentDevice": "Device: Possible values are [ALL], [Processor], or [Touchpanel]",
+        "commentCommand": "Command: Value here will be string sent to device",
+        "commentLogResponse": "LogResponse: Possible values are [true] or [false]"
+    },
+    {
+        "Device": "All",
+        "Command": "setloginattempts 0",
+        "LogResponse": "true"
+    },
+    {
+        "Device": "All",
+        "Command": "cloudenable off",
+        "LogResponse": "true"
+    },
+    {
+        "Device": "Processor",
+        "Command": "ctpconsole disable",
+        "LogResponse": "true"
+    },
+    {
+        "Device": "Processor",
+        "Command": "telnet off",
+        "LogResponse": "true"
+    },
+    {
+        "Device": "Processor",
+        "Command": "auditlog on all",
+        "LogResponse": "true"
+    },
+    {
+        "Device": "Processor",
+        "Command": "hydrogenenable off",
+        "LogResponse": "true"
+    },
+    {
+        "Device": "All",
+        "Command": "reboot",
+        "LogResponse": "true"
+    }
+]

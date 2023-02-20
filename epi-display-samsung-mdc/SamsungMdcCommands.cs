@@ -176,6 +176,11 @@ namespace PepperDashPluginSamsungMdcDisplay
         public const byte InputHdmi4Pc = 0x34;
 
         /// <summary>
+        /// 2.1.14 Input source control - MagicInfo
+        /// </summary>
+        public const byte InputMagicInfo = 0x60;
+
+        /// <summary>
         /// 2.1.14 Input source control - TV1
         /// </summary>
         public const byte InputTv1 = 0x40;

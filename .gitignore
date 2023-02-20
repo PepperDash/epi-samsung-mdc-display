@@ -370,3 +370,5 @@ FodyWeavers.xsd
 
 epi-display-clzbuilds/
 
+epi-display-samsung-mdc/*
+!*/packages.config

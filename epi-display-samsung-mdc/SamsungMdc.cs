@@ -275,7 +275,8 @@ namespace PepperDashPluginSamsungMdcDisplay
                 trilist.SetSigTrueAction((ushort)(joinMap.InputSelectOffset.JoinNumber + count), () =>
                     {
                         Debug.Console(DebugLevelVerbose, this, "InputSelect Digital-'{0}'", inputIndex);
-                        SetInput = inputIndex;
+                        //SetInput = inputIndex;
+                        ExecuteSwitch(i.Selector);
                     });
 
                 var friendlyName = _config.FriendlyNames.FirstOrDefault(n => n.InputKey == i.Key);
@@ -729,6 +730,10 @@ namespace PepperDashPluginSamsungMdcDisplay
                 new RoutingInputPort(RoutingPortNames.DviIn, eRoutingSignalType.Audio | eRoutingSignalType.Video,
                     eRoutingPortConnectionType.Dvi, new Action(InputDvi1), this), SamsungMdcCommands.InputDvi1);
 
+            AddRoutingInputPort(
+                new RoutingInputPort(RoutingPortNames.MediaPlayer, eRoutingSignalType.Audio | eRoutingSignalType.Video,
+                    eRoutingPortConnectionType.Streaming, new Action(InputMagicInfo), this), SamsungMdcCommands.InputMagicInfo);
+
 
             for (var i = 0; i < InputPorts.Count; i++)
             {
@@ -996,6 +1001,15 @@ namespace PepperDashPluginSamsungMdcDisplay
         }
 
         /// <summary>
+        /// Input MagicInfo set (Cmd: 0x60) pdf page 29
+        /// Set: [HEADER=0xAA][Cmd=0x14][ID][DATA_LEN=0x01][DATA-1=0x18][CS=0x00]
+        /// </summary>
+        public void InputMagicInfo()
+        {
+            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.InputSourceControl, 0x00, 0x01, SamsungMdcCommands.InputMagicInfo, 0x00 });
+        }
+
+        /// <summary>
         /// Input HDMI 1 (Cmd: 0x14) pdf page 426
         /// Get: [HEADER=0xAA][Cmd=0x14][ID][DATA_LEN=0x00][CS=0x00]
         /// </summary>
@@ -1037,6 +1051,9 @@ namespace PepperDashPluginSamsungMdcDisplay
                     break;
                 case "dviIn":
                     CurrentInputNumber = 7;
+                    break;
+                case "mediaPlayer":
+                    CurrentInputNumber = 8;
                     break;
             }
         }

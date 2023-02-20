@@ -1,0 +1,20 @@
+[
+    {
+        "Name":  "FirendlyName-TP1",
+        "Device":  "TouchPanel",
+        "Model":  "TSW",
+        "Configuration":  "",
+        "Address":  "10.1.10.121",
+        "Username":  "crestron",
+        "Password":  ""
+    },
+        {
+        "Name":  "FirendlyName-TP2",
+        "Device":  "TouchPanel",
+        "Model":  "TSW",
+        "Configuration":  "",
+        "Address":  "10.1.10.122",
+        "Username":  "crestron",
+        "Password":  ""
+    }
+]
