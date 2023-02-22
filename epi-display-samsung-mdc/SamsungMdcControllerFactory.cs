@@ -2,7 +2,6 @@
 using PepperDash.Core;
 using PepperDash.Essentials.Core;
 using PepperDash.Essentials.Core.Config;
-using PepperDashPluginSamsungMdcDisplay;
 
 namespace PepperDashPluginSamsungMdcDisplay
 {
@@ -27,7 +26,7 @@ namespace PepperDashPluginSamsungMdcDisplay
                 return null;
             }
 
-            var config = dc.Properties.ToObject<SamsungMDCDisplayPropertiesConfig>();
+            var config = dc.Properties.ToObject<SamsungMdcDisplayPropertiesConfig>();
 
             if (config != null)
             {

@@ -3,11 +3,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using Crestron.SimplSharp;
 using Crestron.SimplSharpPro.DeviceSupport;
-using Crestron.SimplSharpPro.DM;
 using Newtonsoft.Json;
 using PepperDash.Core;
 using PepperDash.Essentials.Core;
@@ -25,18 +25,17 @@ namespace PepperDashPluginSamsungMdcDisplay
         public StatusMonitorBase CommunicationMonitor { get; private set; }
         public IBasicCommunication Communication { get; private set; }
         private byte[] _incomingBuffer = { };
-        private CCriticalSection _parseLock = new CCriticalSection();
 
         public IntFeedback StatusFeedback { get; set; }
 
-        private readonly SamsungMDCDisplayPropertiesConfig _config;
+        private readonly SamsungMdcDisplayPropertiesConfig _config;
         public byte Id { get; private set; }        
         private readonly uint _coolingTimeMs;
         private readonly uint _warmingTimeMs;
         private readonly long _pollIntervalMs;
-        private CTimer _pollRing;
+        private readonly List<CustomInput> _customInputs; 
 
-
+        private CTimer _pollTimer;
 
         private bool _isPoweringOnIgnorePowerFb;
 
@@ -181,7 +180,7 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// <param name="config"></param>
         /// <param name="key"></param>
         /// <param name="comms"></param>
-        public SamsungMdcDisplayController(string key, string name, SamsungMDCDisplayPropertiesConfig config,
+        public SamsungMdcDisplayController(string key, string name, SamsungMdcDisplayPropertiesConfig config,
             IBasicCommunication comms)
             : base(key, name)
         {
@@ -191,13 +190,14 @@ namespace PepperDashPluginSamsungMdcDisplay
 
             Id = _config.Id == null ? (byte)0x01 : Convert.ToByte(_config.Id, 16);
 
-            _upperLimit = _config.volumeUpperLimit;
-            _lowerLimit = _config.volumeLowerLimit;
-            _pollIntervalMs = _config.pollIntervalMs;
-            _coolingTimeMs = _config.coolingTimeMs;
-            _warmingTimeMs = _config.warmingTimeMs;
-            _showVolumeControls = _config.showVolumeControls;
-            _pollLedTemps = config.pollLedTemps;
+            _upperLimit = _config.VolumeUpperLimit;
+            _lowerLimit = _config.VolumeLowerLimit;
+            _pollIntervalMs = _config.PollIntervalMs;
+            _coolingTimeMs = _config.CoolingTimeMs;
+            _warmingTimeMs = _config.WarmingTimeMs;
+            _showVolumeControls = _config.ShowVolumeControls;
+            _pollLedTemps = config.PollLedTemps;
+            _customInputs = config.CustomInputs;
 
             ResetDebugLevels();
 
@@ -340,12 +340,12 @@ namespace PepperDashPluginSamsungMdcDisplay
                 PowerIsOnFeedback.FireUpdate();
                 CurrentInputFeedback.FireUpdate();
 
-                var port = 0;
-                foreach (var inputPort in InputPorts)
+                for (var port = 0; port < InputPorts.Count; port++)
                 {
                     InputFeedback[port].FireUpdate();
-                    port++;
+
                 }
+
                 InputNumberFeedback.FireUpdate();
 
                 trilist.SetBool(joinMap.VolumeControlsVisibleFb.JoinNumber, _showVolumeControls);
@@ -612,7 +612,6 @@ namespace PepperDashPluginSamsungMdcDisplay
                             Array.Copy(message, 6, macInfo, 0, length - 1);
 
                             UpdateMacAddress(macInfo);
-                            break;
                         }
 
                         break;
@@ -696,39 +695,58 @@ namespace PepperDashPluginSamsungMdcDisplay
         {
             //_InputFeedback = new List<bool>();
             InputFeedback = new List<BoolFeedback>();
+            if (_customInputs.Count == 0)
+            {
+                AddRoutingInputPort(
+                    new RoutingInputPort(RoutingPortNames.HdmiIn1, eRoutingSignalType.Audio | eRoutingSignalType.Video,
+                        eRoutingPortConnectionType.Hdmi, new Action(InputHdmi1), this), SamsungMdcCommands.InputHdmi1);
 
-            AddRoutingInputPort(
-                new RoutingInputPort(RoutingPortNames.HdmiIn1, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                    eRoutingPortConnectionType.Hdmi, new Action(InputHdmi1), this), SamsungMdcCommands.InputHdmi1);
+                AddRoutingInputPort(
+                    new RoutingInputPort(RoutingPortNames.HdmiIn2, eRoutingSignalType.Audio | eRoutingSignalType.Video,
+                        eRoutingPortConnectionType.Hdmi, new Action(InputHdmi2), this), SamsungMdcCommands.InputHdmi2);
 
-            AddRoutingInputPort(
-                new RoutingInputPort(RoutingPortNames.HdmiIn2, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                    eRoutingPortConnectionType.Hdmi, new Action(InputHdmi2), this), SamsungMdcCommands.InputHdmi2);
+                AddRoutingInputPort(
+                    new RoutingInputPort(RoutingPortNames.HdmiIn3, eRoutingSignalType.Audio | eRoutingSignalType.Video,
+                        eRoutingPortConnectionType.Hdmi, new Action(InputHdmi3), this), SamsungMdcCommands.InputHdmi3);
 
-            AddRoutingInputPort(
-                new RoutingInputPort(RoutingPortNames.HdmiIn3, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                    eRoutingPortConnectionType.Hdmi, new Action(InputHdmi3), this), SamsungMdcCommands.InputHdmi3);
+                AddRoutingInputPort(
+                    new RoutingInputPort(RoutingPortNames.HdmiIn4, eRoutingSignalType.Audio | eRoutingSignalType.Video,
+                        eRoutingPortConnectionType.Hdmi, new Action(InputHdmi4), this), SamsungMdcCommands.InputHdmi4);
 
-            AddRoutingInputPort(
-                new RoutingInputPort(RoutingPortNames.HdmiIn4, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                    eRoutingPortConnectionType.Hdmi, new Action(InputHdmi4), this), SamsungMdcCommands.InputHdmi4);
+                AddRoutingInputPort(
+                    new RoutingInputPort(RoutingPortNames.DisplayPortIn1,
+                        eRoutingSignalType.Audio | eRoutingSignalType.Video,
+                        eRoutingPortConnectionType.DisplayPort, new Action(InputDisplayPort1), this),
+                    SamsungMdcCommands.InputDisplayPort1);
 
-            AddRoutingInputPort(
-                new RoutingInputPort(RoutingPortNames.DisplayPortIn1,
-                    eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                    eRoutingPortConnectionType.DisplayPort, new Action(InputDisplayPort1), this),
-                SamsungMdcCommands.InputDisplayPort1);
+                AddRoutingInputPort(
+                    new RoutingInputPort(RoutingPortNames.DisplayPortIn2,
+                        eRoutingSignalType.Audio | eRoutingSignalType.Video,
+                        eRoutingPortConnectionType.DisplayPort, new Action(InputDisplayPort2), this),
+                    SamsungMdcCommands.InputDisplayPort2);
 
-            AddRoutingInputPort(
-                new RoutingInputPort(RoutingPortNames.DisplayPortIn2,
-                    eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                    eRoutingPortConnectionType.DisplayPort, new Action(InputDisplayPort2), this),
-                SamsungMdcCommands.InputDisplayPort2);
+                AddRoutingInputPort(
+                    new RoutingInputPort(RoutingPortNames.DviIn, eRoutingSignalType.Audio | eRoutingSignalType.Video,
+                        eRoutingPortConnectionType.Dvi, new Action(InputDvi1), this), SamsungMdcCommands.InputDvi1);
 
-            AddRoutingInputPort(
-                new RoutingInputPort(RoutingPortNames.DviIn, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                    eRoutingPortConnectionType.Dvi, new Action(InputDvi1), this), SamsungMdcCommands.InputDvi1);
+                AddRoutingInputPort(
+                    new RoutingInputPort(RoutingPortNames.MediaPlayer,
+                        eRoutingSignalType.Audio | eRoutingSignalType.Video,
+                        eRoutingPortConnectionType.Streaming, new Action(InputMagicInfo), this),
+                    SamsungMdcCommands.InputMagicInfo);
+            }
+            else
+            {
+                foreach (var customInput in _customInputs)
+                {
+                    var input = customInput;
+                    var commandHex = ConvertStringToHex(input.InputCommand);
 
+                    AddRoutingInputPort(new RoutingInputPort(input.InputIdentifier, eRoutingSignalType.Audio | eRoutingSignalType.Video,
+                        (eRoutingPortConnectionType)Enum.Parse(typeof(eRoutingPortConnectionType), input.InputConnector, true), 
+                        new Action(() => InputGeneric(commandHex)), this), commandHex);
+                }
+            }
 
             for (var i = 0; i < InputPorts.Count; i++)
             {
@@ -996,12 +1014,31 @@ namespace PepperDashPluginSamsungMdcDisplay
         }
 
         /// <summary>
+        /// Input DVI 1 (Cmd: 0x14) pdf page 426
+        /// Set: [HEADER=0xAA][Cmd=0x14][ID][DATA_LEN=0x01][DATA-1=0x20][CS=0x00]
+        /// </summary>
+        public void InputMagicInfo()
+        {
+            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.InputSourceControl, 0x00, 0x01, SamsungMdcCommands.InputMagicInfo, 0x00 });
+        }
+
+        /// <summary>
         /// Input HDMI 1 (Cmd: 0x14) pdf page 426
         /// Get: [HEADER=0xAA][Cmd=0x14][ID][DATA_LEN=0x00][CS=0x00]
         /// </summary>
         public void InputGet()
         {
             SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.InputSourceControl, 0x00, 0x00, 0x00 });            
+        }
+
+        public void InputGeneric(byte data)
+        {
+            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.InputSourceControl, 0x00, 0x01, data, 0x00 });
+        }
+
+        public static byte ConvertStringToHex(string src)
+        {
+            return (byte)int.Parse(src.Substring(0, 2), NumberStyles.HexNumber);
         }
 
         /// <summary>
@@ -1011,10 +1048,20 @@ namespace PepperDashPluginSamsungMdcDisplay
         {
             var newInput = InputPorts.FirstOrDefault(i => i.FeedbackMatchObject.Equals(b));
             if (newInput == null) return;
+            int inputIndex;
+            try
+            {
+                inputIndex = InputPorts.FindIndex(a => a.FeedbackMatchObject.Equals(b)) + 1;
+            }
+            catch (Exception e)
+            {
+                Debug.Console(0, this, "Unable to match feedback {0} with input.", b);
+                Debug.Console(0, this, "Exception : {0}", e.Message);
+                return;
+            }
+            CurrentInputNumber = inputIndex;
 
-            _currentInputPort = newInput;
-
-            var key = newInput.Key;
+            /*
             switch (key)
             {
                 case "hdmiIn1":
@@ -1038,7 +1085,11 @@ namespace PepperDashPluginSamsungMdcDisplay
                 case "dviIn":
                     CurrentInputNumber = 7;
                     break;
+                case "streaming":
+                    CurrentInputNumber = 8;
+                    break;
             }
+            */
         }
 
         private void UpdateBooleanFeedback()
@@ -1152,8 +1203,12 @@ namespace PepperDashPluginSamsungMdcDisplay
         public void VolumeGet()
         {
             SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.VolumeControl, 0x00, 0x00, 0x00 });
-            _pollRing = null;
-            _pollRing = new CTimer(o => MuteGet(), null, 1000);
+            if(_pollTimer != null)
+            {
+                _pollTimer.Reset(1000);
+                return;
+            }
+            _pollTimer = new CTimer(o => MuteGet(), null, 1000);
         }
 
         // <summary>
