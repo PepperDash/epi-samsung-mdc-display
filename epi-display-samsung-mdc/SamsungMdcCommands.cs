@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using Crestron.SimplSharp;
-
-namespace PepperDashPluginSamsungMdcDisplay
+﻿namespace PepperDashPluginSamsungMdcDisplay
 {
     public class SamsungMdcCommands
     {
@@ -174,6 +168,11 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// 2.1.14 Input source control - HDMI4 PC
         /// </summary>
         public const byte InputHdmi4Pc = 0x34;
+
+        /// <summary>
+        /// 2.1.14 Input source control - MagicInfo
+        /// </summary>
+        public const byte InputMagicInfo = 0x20;
 
         /// <summary>
         /// 2.1.14 Input source control - TV1
@@ -366,7 +365,7 @@ namespace PepperDashPluginSamsungMdcDisplay
 
         /// <summary>
         /// 2.1.D0.84 Led Monitoring (LED product feature sub cmd: 0x84)
-        /// Gets LED Product status, status includes: val1=Power&IC, val2=HDBaseT_Status, val3=Temperature, val4=Illuminance, val5=Module1, val6=Module1_LED_Error_Data,.... valN=ModuleX, valN+1=ModuleX_LED_Error_Data\
+        /// Gets LED Product status, status includes: val1=Power_IC, val2=HDBaseT_Status, val3=Temperature, val4=Illuminance, val5=Module1, val6=Module1_LED_Error_Data,.... valN=ModuleX, valN+1=ModuleX_LED_Error_Data\
         /// Temperature range 0C-254C
         /// Illuminance range 0d - 100d (0x00 - 0x64)
         /// </summary>
