@@ -271,7 +271,7 @@ namespace PepperDashPluginSamsungMdcDisplay
             foreach (var input in InputPorts)
             {
                 var i = input;
-                var inputIndex = count;
+                var inputIndex = count + 1;
                 trilist.SetSigTrueAction((ushort)(joinMap.InputSelectOffset.JoinNumber + count), () =>
                     {
                         Debug.Console(DebugLevelVerbose, this, "InputSelect Digital-'{0}'", inputIndex);
