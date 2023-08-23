@@ -61,7 +61,7 @@ namespace PepperDashPluginSamsungMdcDisplay
         public static List<string> InputKeys = new List<string>();
 
         public List<BoolFeedback> InputFeedback;
-        public IntFeedback InputNumberFeedback;
+        public IntFeedback InputNumberFeedback { get; private set; }
 
         private RoutingInputPort _currentInputPort;
         protected override Func<string> CurrentInputFeedbackFunc
@@ -616,6 +616,12 @@ namespace PepperDashPluginSamsungMdcDisplay
 
                         break;
                     }
+                case SamsungMdcCommands.ModelControl:
+                {
+                    Debug.Console(2, "ModeelControlMessage : {0}", message);
+                    Debug.Console(2, this, "ModelControl Response : {0},{1},{2}", message[4], message[5], message[6]);
+                    break;
+                }
                 default:
                     {
                         Debug.Console(DebugLevelDebug, this, "Unknown message: {0}", ComTextHelper.GetEscapedText(message));
@@ -806,7 +812,8 @@ namespace PepperDashPluginSamsungMdcDisplay
         public override void PowerOn()
         {
             _isPoweringOnIgnorePowerFb = true;
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.PowerControl, 0x00, 0x01, SamsungMdcCommands.PowerOn, 0x00 });
+            SendBytes(new byte[]
+            {SamsungMdcCommands.Header, SamsungMdcCommands.PowerControl, 0x00, 0x01, SamsungMdcCommands.PowerOn, 0x00});
 
             if (PowerIsOnFeedback.BoolValue || _isWarmingUp || _isCoolingDown)
             {
@@ -822,6 +829,14 @@ namespace PepperDashPluginSamsungMdcDisplay
                 IsWarmingUpFeedback.FireUpdate();
                 PowerIsOnFeedback.FireUpdate();
             }, WarmupTime);
+        }
+
+        public void GetStatus()
+        {
+            SendBytes(new byte[]
+            {
+                SamsungMdcCommands.Header, SamsungMdcCommands.ModelControl, 0x00, 0x00, 0x00
+            });
         }
 
         /// <summary>
@@ -875,7 +890,7 @@ namespace PepperDashPluginSamsungMdcDisplay
         public void PowerGet()
         {
             //SendBytes(PowerGetCmd);
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.PowerControl, 0x00, 0x00, 0x00 });
+            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.PowerControl, 0x00, 0x00 });
         }
 
         /// <summary>
@@ -893,7 +908,10 @@ namespace PepperDashPluginSamsungMdcDisplay
                 return;
             }
             _powerIsOn = newVal;
+            if (!_powerIsOn) UpdateInputFb(0x00);
             PowerIsOnFeedback.FireUpdate();
+            InputNumberFeedback.FireUpdate();
+
         }
 
         #endregion
@@ -1047,11 +1065,13 @@ namespace PepperDashPluginSamsungMdcDisplay
         private void UpdateInputFb(byte b)
         {
             var newInput = InputPorts.FirstOrDefault(i => i.FeedbackMatchObject.Equals(b));
-            if (newInput == null) return;
+            if (newInput == null && b != 0x00) return;
             int inputIndex;
             try
             {
-                inputIndex = InputPorts.FindIndex(a => a.FeedbackMatchObject.Equals(b)) + 1;
+                if (newInput != null) _currentInputPort = newInput;
+                inputIndex = b == 0x00 ? 0 : InputPorts.FindIndex(a => a.FeedbackMatchObject.Equals(b)) + 1;
+                OnSwitchChange(new RoutingNumericEventArgs(0, (uint)inputIndex, eRoutingSignalType.AudioVideo));
             }
             catch (Exception e)
             {
@@ -1059,7 +1079,9 @@ namespace PepperDashPluginSamsungMdcDisplay
                 Debug.Console(0, this, "Exception : {0}", e.Message);
                 return;
             }
+            //Debug.Console(0, this, "InputIndex = {0}", inputIndex);
             CurrentInputNumber = inputIndex;
+            InputNumberFeedback.FireUpdate();
 
             /*
             switch (key)

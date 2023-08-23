@@ -408,5 +408,11 @@
         /// 2.1.1B.82 Network configuration (system configuration sub-cmd: 0x82)
         /// </summary>
         public const byte NetworkConfiguration = 0x82;
+
+        /// <summary>
+        /// Gets Make, Model, and TV Capabilities of display
+        /// </summary>
+        public const byte ModelControl = 0x10;
+
     }
 }
