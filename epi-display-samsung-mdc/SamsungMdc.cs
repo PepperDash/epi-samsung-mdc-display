@@ -202,7 +202,18 @@ namespace PepperDashPluginSamsungMdcDisplay
             ResetDebugLevels();
 
             DeviceInfo = new DeviceInfo();
-            Init();
+
+            WarmupTime = _warmingTimeMs > 0 ? _warmingTimeMs : 15000;
+            CooldownTime = _coolingTimeMs > 0 ? _coolingTimeMs : 15000;
+
+            InitCommMonitor();
+
+            InitVolumeControls();
+
+            InitInputPortsAndFeedbacks();
+
+            InitTemperatureFeedback();
+            //Init();
         }
 
         public override FeedbackCollection<Feedback> Feedbacks
@@ -359,19 +370,6 @@ namespace PepperDashPluginSamsungMdcDisplay
 
         #endregion
 
-
-        /// <summary>
-        /// Custom activate
-        /// </summary>
-        /// <returns></returns>
-        public override bool CustomActivate()
-        {
-            Communication.Connect();
-            CommunicationMonitor.StatusChange +=
-                (o, a) => Debug.Console(DebugLevelVerbose, this, "Communication monitor state: {0}", CommunicationMonitor.Status);
-            CommunicationMonitor.Start();
-            return true;
-        }
 
         /// <summary>
         /// Formats an outgoing message. 
@@ -633,22 +631,12 @@ namespace PepperDashPluginSamsungMdcDisplay
 
         #region Inits
 
-        /// <summary>
-        /// Initialize 
-        /// </summary>
-        private void Init()
+        public override void Initialize()
         {
-            WarmupTime = _warmingTimeMs > 0 ? _warmingTimeMs : 15000;
-            CooldownTime = _coolingTimeMs > 0 ? _coolingTimeMs : 15000;
-
-            InitCommMonitor();
-
-            InitVolumeControls();
-
-            InitInputPortsAndFeedbacks();
-
-            InitTemperatureFeedback();
-
+            Communication.Connect();
+            CommunicationMonitor.StatusChange +=
+                (o, a) => Debug.Console(DebugLevelVerbose, this, "Communication monitor state: {0}", CommunicationMonitor.Status);
+            CommunicationMonitor.Start();
             StatusGet();
         }
 
