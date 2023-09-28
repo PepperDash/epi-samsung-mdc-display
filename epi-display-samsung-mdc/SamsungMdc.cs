@@ -435,7 +435,6 @@ namespace PepperDashPluginSamsungMdcDisplay
                     // following string format from building unnecessarily on level 0 or 1
                     Debug.Console(DebugLevelVerbose, this, "Received new bytes:{0}", ComTextHelper.GetEscapedText(newBytes));
                 }
-
                 // Get data length
                 if (newBytes.Length >= 6)
                 {
@@ -454,7 +453,7 @@ namespace PepperDashPluginSamsungMdcDisplay
                         return;
                     }
                 }
-                if (newBytes[0] == 0xAA)
+                if (newBytes[0] == 0xAA && newBytes[1] == 0xFF && newBytes[2] == Id)
                 {
                     _incomingBuffer = newBytes;
                     if (Debug.Level == 2)
@@ -467,6 +466,11 @@ namespace PepperDashPluginSamsungMdcDisplay
                 {
                     byte[] clear = { };
                     _incomingBuffer = clear;
+                    if (Debug.Level == 2)
+                    {
+                        // This check is here to prevent following string format from building unnecessarily on level 0 or 1
+                        Debug.Console(DebugLevelVerbose, this, "Unsupported response recieved:{0}", ComTextHelper.GetEscapedText(newBytes));
+                    }
                 }
             }
             catch (Exception ex)
