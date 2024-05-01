@@ -1,8 +1,25 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net472</TargetFramework>
-    <RootNamespace>Pepperdash.Essentials.Plugins.Display.Samsung.MDC</RootNamespace>
+	  <TargetFramework>net472</TargetFramework>
+	  <RootNamespace>Pepperdash.Essentials.Plugins.Display.Samsung.MDC</RootNamespace>
+	  <Deterministic>false</Deterministic>
+	  <AssemblyTitle>EPI.Samsung.MDC</AssemblyTitle>
+	  <Company>PepperDash Technologies</Company>
+	  <Description>This software is a plugin designed to work as a part of PepperDash Essentials for Crestron control processors. This plugin allows for control of Sony Bravia Displays.</Description>
+	  <Copyright>Copyright 2024</Copyright>
+	  <Version>1.0.0-local</Version>
+	  <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+	  <InformationalVersion>$(Version)</InformationalVersion>
+	  <OutputPath>4Series\bin\$(Configuration)\</OutputPath>
+	  <Authors>PepperDash Technologies</Authors>
+	  <PackageId>Pepperdash.Essentials.Plugins.Display.Samsung.MDC</PackageId>
+	  <PackageProjectUrl>https://github.com/PepperDash/epi-samsung-mdc-dispaly.git</PackageProjectUrl>
+	  <PackageTags>crestron 4series samsung mdc</PackageTags>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+	  <DefineConstants>$(DefineConstants);SERIES4</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
