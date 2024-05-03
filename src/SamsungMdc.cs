@@ -13,6 +13,7 @@ using PepperDash.Core;
 using PepperDash.Essentials.Core;
 using PepperDash.Essentials.Core.Bridges;
 using PepperDash.Essentials.Core.DeviceInfo;
+using PepperDash.Essentials.Core.DeviceTypeInterfaces;
 using PepperDash.Essentials.Core.Routing;
 using PepperDash.Essentials.Devices.Displays;
 using Feedback = PepperDash.Essentials.Core.Feedback;
@@ -21,6 +22,10 @@ namespace PepperDashPluginSamsungMdcDisplay
 {
     public class SamsungMdcDisplayController : TwoWayDisplayBase, IBasicVolumeWithFeedback, ICommunicationMonitor,
         IBridgeAdvanced, IDeviceInfoProvider, IInputDisplayPort1, IInputDisplayPort2, IInputHdmi1, IInputHdmi2, IInputHdmi3, IInputHdmi4
+    #if SERIES4
+        ,IHasInputs<byte, int>
+    #endif
+
     {
         public StatusMonitorBase CommunicationMonitor { get; private set; }
         public IBasicCommunication Communication { get; private set; }
@@ -87,30 +92,48 @@ namespace PepperDashPluginSamsungMdcDisplay
                 UpdateBooleanFeedback();
             }
         }
+#if SERIES4
+        public ISelectableItems<byte> Inputs { get; private set; }
 
-        public int SetInput
+
+        //what I need to do, use existing logic that sets inputs and passes into an int value, and have that value select the
+        //input from the list of ISelectableItems Inputs
+
+        /* To-Do: Find the actual thing that sends the command.
+         Build a class that satisfies Iselectable Items and an IselectableItems Class
+            Each Input needs an implementation of Select and IsSelected, look at LG for examples
+            ALL I NEED TO DO IS: when select is asserted on the input, it sends the command to the display
+            when the main class parses the current selected input, it should iterate through my ISelectableItems and set them accordingly
+
+        Create a separate file for the inputs class (see LG )
+        The select method should just have an Action, and I can pass in the input method to be called
+            */
+#endif
+
+        public void SetInput(int value)
+{
+        if (value <= 0 || value >= InputPorts.Count) return;
+
+        Debug.Console(DebugLevelDebug, this, "SetInput: value-'{0}'", value);
+
+        // -1 to get actual input after'0d' check                
+        var port = GetInputPort(value - 1);
+        if (port == null)
         {
-            set
-            {
-                if (value <= 0 || value >= InputPorts.Count) return;
-
-                Debug.Console(DebugLevelDebug, this, "SetInput: value-'{0}'", value);
-
-                // -1 to get actual input after'0d' check                
-                var port = GetInputPort(value - 1);
-                if (port == null)
-                {
-                    Debug.Console(DebugLevelDebug, this, "SetInput: failed to get input port");
-                    return;
-                }
-
-                Debug.Console(DebugLevelDebug, this, "SetInput: port.Key-'{0}', port.Selector-'{1}', port.ConnectionType-'{2}', port.FeedbackMatchObject-'{3}'",
-                    port.Key, port.Selector, port.ConnectionType, port.FeedbackMatchObject);
-
-                ExecuteSwitch(port.Selector);
-                UpdateInputFb((byte)port.FeedbackMatchObject);
-            }
+            Debug.Console(DebugLevelDebug, this, "SetInput: failed to get input port");
+            return;
         }
+
+        Debug.Console(DebugLevelDebug, this, "SetInput: port.Key-'{0}', port.Selector-'{1}', port.ConnectionType-'{2}', port.FeedbackMatchObject-'{3}'",
+            port.Key, port.Selector, port.ConnectionType, port.FeedbackMatchObject);
+
+        ExecuteSwitch(port.Selector);
+        UpdateInputFb((byte)port.FeedbackMatchObject);
+        
+    
+}        
+        
+
 
         private RoutingInputPort GetInputPort(int input)
         {
@@ -275,7 +298,7 @@ namespace PepperDashPluginSamsungMdcDisplay
                 trilist.SetSigTrueAction((ushort)(joinMap.InputSelectOffset.JoinNumber + count), () =>
                     {
                         Debug.Console(DebugLevelVerbose, this, "InputSelect Digital-'{0}'", inputIndex);
-                        SetInput = inputIndex;
+                        SetInput(inputIndex);
                     });
 
                 var friendlyName = _config.FriendlyNames.FirstOrDefault(n => n.InputKey == i.Key);
@@ -298,7 +321,7 @@ namespace PepperDashPluginSamsungMdcDisplay
             trilist.SetUShortSigAction(joinMap.InputSelect.JoinNumber, a =>
             {
                 Debug.Console(DebugLevelVerbose, this, "InputSelect Analog-'{0}'", a);                
-                SetInput = a;
+                SetInput(a);
             });
 
             // input analog feedback
@@ -644,6 +667,10 @@ namespace PepperDashPluginSamsungMdcDisplay
             InitTemperatureFeedback();
 
             StatusGet();
+
+#if SERIES4
+            SetupInputs();
+#endif
         }
 
         private void InitCommMonitor()
@@ -950,6 +977,44 @@ namespace PepperDashPluginSamsungMdcDisplay
             }
         }
 
+#if SERIES4
+        private void SetupInputs() //DELETE:a2472
+        {
+            Inputs = new SamsungInputs
+            {
+                Items = new Dictionary<byte, ISelectableItem>
+                {
+                    {
+                        SamsungMdcCommands.InputHdmi1, new SamsungInput("hdmi1", "HDMI 1", this, InputHdmi1)
+                    },
+                    {
+                        SamsungMdcCommands.InputHdmi2, new SamsungInput("hdmi2", "HDMI 2", this, InputHdmi2)
+                    },
+                    {
+                        SamsungMdcCommands.InputHdmi3, new SamsungInput("hdmi3", "HDMI 3", this, InputHdmi3)
+                    },
+                    {
+                        SamsungMdcCommands.InputHdmi4, new SamsungInput("hdmi4", "HDMI 4", this, InputHdmi4)
+                    },
+                    {
+                        SamsungMdcCommands.InputDisplayPort1, new SamsungInput("displayPort1", "Display Port 1", this, InputDisplayPort1)
+                    },
+                    {
+                        SamsungMdcCommands.InputDisplayPort2, new SamsungInput("displayPort2", "Display Port 2", this, InputDisplayPort2)
+                    },
+                    {
+                        SamsungMdcCommands.InputDvi1, new SamsungInput("dvi1", "DVI 1", this, InputDvi1)
+                    },
+                    {
+                        SamsungMdcCommands.InputMagicInfo, new SamsungInput("magicInfo", "Magic Info", this, InputMagicInfo)
+                    }
+
+                }
+            };
+        }
+#endif
+
+
         /// <summary>
         /// Input HDMI 1 (Cmd: 0x14) pdf page 426
         /// Set: [HEADER=0xAA][Cmd=0x14][ID][DATA_LEN=0x01][DATA-1=0x21][CS=0x00]
@@ -1061,36 +1126,21 @@ namespace PepperDashPluginSamsungMdcDisplay
             }
             CurrentInputNumber = inputIndex;
 
-            /*
-            switch (key)
+#if SERIES4
+            if (Inputs.Items.ContainsKey(b))
             {
-                case "hdmiIn1":
-                    CurrentInputNumber = 1;
-                    break;
-                case "hdmiIn2":
-                    CurrentInputNumber = 2;
-                    break;
-                case "hdmiIn3":
-                    CurrentInputNumber = 3;
-                    break;
-                case "hdmiIn4":
-                    CurrentInputNumber = 4;
-                    break;
-                case "displayPortIn1":
-                    CurrentInputNumber = 5;
-                    break;
-                case "displayPortIn2":
-                    CurrentInputNumber = 6;
-                    break;
-                case "dviIn":
-                    CurrentInputNumber = 7;
-                    break;
-                case "streaming":
-                    CurrentInputNumber = 8;
-                    break;
+
+                foreach (var item in Inputs.Items)
+                {
+                    item.Value.IsSelected = item.Key.Equals(b);
+                }
             }
-            */
+
+            Inputs.CurrentItem = b;
+#endif
+
         }
+
 
         private void UpdateBooleanFeedback()
         {
