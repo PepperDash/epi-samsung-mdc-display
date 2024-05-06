@@ -95,19 +95,6 @@ namespace PepperDashPluginSamsungMdcDisplay
 #if SERIES4
         public ISelectableItems<byte> Inputs { get; private set; }
 
-
-        //what I need to do, use existing logic that sets inputs and passes into an int value, and have that value select the
-        //input from the list of ISelectableItems Inputs
-
-        /* To-Do: Find the actual thing that sends the command.
-         Build a class that satisfies Iselectable Items and an IselectableItems Class
-            Each Input needs an implementation of Select and IsSelected, look at LG for examples
-            ALL I NEED TO DO IS: when select is asserted on the input, it sends the command to the display
-            when the main class parses the current selected input, it should iterate through my ISelectableItems and set them accordingly
-
-        Create a separate file for the inputs class (see LG )
-        The select method should just have an Action, and I can pass in the input method to be called
-            */
 #endif
 
         public void SetInput(int value)
@@ -978,7 +965,7 @@ namespace PepperDashPluginSamsungMdcDisplay
         }
 
 #if SERIES4
-        private void SetupInputs() //DELETE:a2472
+        private void SetupInputs()
         {
             Inputs = new SamsungInputs
             {
