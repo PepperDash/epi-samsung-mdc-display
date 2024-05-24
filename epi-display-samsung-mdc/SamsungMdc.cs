@@ -143,6 +143,7 @@ namespace PepperDashPluginSamsungMdcDisplay
         private bool _isMuted;
 
         private readonly bool _showVolumeControls;
+        private readonly bool _isSnowbox;
         private ActionIncrementer _volumeIncrementer;
 
 
@@ -196,6 +197,7 @@ namespace PepperDashPluginSamsungMdcDisplay
             _coolingTimeMs = _config.CoolingTimeMs;
             _warmingTimeMs = _config.WarmingTimeMs;
             _showVolumeControls = _config.ShowVolumeControls;
+            _isSnowbox = _config.IsSnowbox;
             _pollLedTemps = config.PollLedTemps;
             _customInputs = config.CustomInputs;
 
@@ -323,6 +325,9 @@ namespace PepperDashPluginSamsungMdcDisplay
             // Show Volume Controls
             trilist.SetBool(joinMap.VolumeControlsVisibleFb.JoinNumber, _showVolumeControls);
 
+            // Is Snowbox 
+            trilist.SetBool(joinMap.IsSnowboxFb.JoinNumber, _isSnowbox);
+
             // LED temperature analog feedback 
             CurrentLedTemperatureCelsiusFeedback.LinkInputSig(
                 trilist.UShortInput[joinMap.LedTemperatureCelsius.JoinNumber]);
@@ -349,6 +354,7 @@ namespace PepperDashPluginSamsungMdcDisplay
                 InputNumberFeedback.FireUpdate();
 
                 trilist.SetBool(joinMap.VolumeControlsVisibleFb.JoinNumber, _showVolumeControls);
+                trilist.SetBool(joinMap.IsSnowboxFb.JoinNumber, _isSnowbox);
                 VolumeLevelFeedback.FireUpdate();
                 MuteFeedback.FireUpdate();
 

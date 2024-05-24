@@ -74,6 +74,23 @@ namespace PepperDashPluginSamsungMdcDisplay
                 JoinType = eJoinType.Digital
             });
 
+        /// <summary>
+        /// High when IsSnowbox is true
+        /// </summary>
+        [JoinName("IsSnowboxFb")]
+        public JoinDataComplete IsSnowboxFb = new JoinDataComplete(
+            new JoinData
+            {
+                JoinNumber = 41,
+                JoinSpan = 1
+            },
+            new JoinMetadata
+            {
+                Description = "Enable Visibility of Volume Controls",
+                JoinCapabilities = eJoinCapabilities.ToSIMPL,
+                JoinType = eJoinType.Digital
+            });
+
 
         /// <summary>
         /// Display controller join map

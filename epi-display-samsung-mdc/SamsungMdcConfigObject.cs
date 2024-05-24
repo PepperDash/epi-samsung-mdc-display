@@ -26,6 +26,9 @@ namespace PepperDashPluginSamsungMdcDisplay
         [JsonProperty("showVolumeControls")]
         public bool ShowVolumeControls { get; set; }
 
+        [JsonProperty("isSnowbox")]
+        public bool IsSnowbox { get; set; }
+
         [JsonProperty("pollLedTemps")]
         public bool PollLedTemps { get; set; }
 
