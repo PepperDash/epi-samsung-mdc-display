@@ -376,7 +376,7 @@ namespace PepperDashPluginSamsungMdcDisplay
         public override bool CustomActivate()
         {
             Communication.Connect();
-            CommunicationMonitor.StatusChange +=
+
                 (o, a) => Debug.Console(DebugLevelVerbose, this, "Communication monitor state: {0}", CommunicationMonitor.Status);
             CommunicationMonitor.Start();
             return true;
@@ -664,7 +664,7 @@ namespace PepperDashPluginSamsungMdcDisplay
             var pollInterval = _pollIntervalMs > 0 ? _pollIntervalMs : 30000;
 
             CommunicationMonitor = new GenericCommunicationMonitor(this, Communication, pollInterval, 180000, 300000,
-                StatusGet);
+                StatusGet, true);
 
             DeviceManager.AddDevice(CommunicationMonitor);
 
