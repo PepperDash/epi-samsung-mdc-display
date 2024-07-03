@@ -377,7 +377,6 @@ namespace PepperDashPluginSamsungMdcDisplay
         {
             Communication.Connect();
 
-                (o, a) => Debug.Console(DebugLevelVerbose, this, "Communication monitor state: {0}", CommunicationMonitor.Status);
             CommunicationMonitor.Start();
             return true;
         }
@@ -846,7 +845,7 @@ namespace PepperDashPluginSamsungMdcDisplay
             _isPoweringOnIgnorePowerFb = false;
             // If a display has unreliable-power off feedback, just override this and
             // remove this check.
-            if (!_isWarmingUp && !_isCoolingDown) // PowerIsOnFeedback.BoolValue &&
+            if (!_isWarmingUp && !_isCoolingDown && _powerIsOn) // PowerIsOnFeedback.BoolValue &&
             {
                 SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.PowerControl, 0x00, 0x01, SamsungMdcCommands.PowerOff, 0x00 });
                 _isCoolingDown = true;
