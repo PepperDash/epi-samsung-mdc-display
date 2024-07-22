@@ -1,4 +1,4 @@
-// For Basic SIMPL# Classes
+﻿// For Basic SIMPL# Classes
 // For Basic SIMPL#Pro classes
 
 using Crestron.SimplSharp;
@@ -818,19 +818,31 @@ namespace PepperDashPluginSamsungMdcDisplay
         public override void PowerOn()
         {
             _isPoweringOnIgnorePowerFb = true;
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.PowerControl, 0x00, 0x01, SamsungMdcCommands.PowerOn, 0x00 });
 
-            if (PowerIsOnFeedback.BoolValue || _isWarmingUp || _isCoolingDown)
+            if (_powerIsOn || _isWarmingUp || _isCoolingDown)
             {
                 return;
             }
+
+            _powerIsOn = true;
+
+            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.PowerControl, 0x00, 0x01, SamsungMdcCommands.PowerOn, 0x00 });
+
+
+            if (WarmupTimer != null || WarmupTime == 0)
+            {
+                PowerIsOnFeedback.FireUpdate();
+                return;
+            }
+
             _isWarmingUp = true;
             IsWarmingUpFeedback.FireUpdate();
+
             // Fake power-up cycle
             WarmupTimer = new CTimer(o =>
             {
                 _isWarmingUp = false;
-                _powerIsOn = true;
+
                 IsWarmingUpFeedback.FireUpdate();
                 PowerIsOnFeedback.FireUpdate();
             }, WarmupTime);
@@ -845,24 +857,37 @@ namespace PepperDashPluginSamsungMdcDisplay
             _isPoweringOnIgnorePowerFb = false;
             // If a display has unreliable-power off feedback, just override this and
             // remove this check.
-            if (!_isWarmingUp && !_isCoolingDown && _powerIsOn) // PowerIsOnFeedback.BoolValue &&
+            if (!_powerIsOn || _isWarmingUp || _isCoolingDown)
             {
-                SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.PowerControl, 0x00, 0x01, SamsungMdcCommands.PowerOff, 0x00 });
-                _isCoolingDown = true;
-                CurrentInputNumber = 0;
-
-                InputNumberFeedback.FireUpdate();
-
-                IsCoolingDownFeedback.FireUpdate();
-                // Fake cool-down cycle
-                CooldownTimer = new CTimer(o =>
-                {
-                    _isCoolingDown = false;
-                    _powerIsOn = false;
-                    PowerIsOnFeedback.FireUpdate();
-                    IsCoolingDownFeedback.FireUpdate();
-                }, CooldownTime);
+                return;
             }
+
+            _powerIsOn = false;
+
+            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.PowerControl, 0x00, 0x01, SamsungMdcCommands.PowerOff, 0x00 });
+
+            CurrentInputNumber = 0;
+
+            InputNumberFeedback.FireUpdate();
+
+            if (CooldownTimer != null || CooldownTime == 0)
+            {
+                PowerIsOnFeedback.FireUpdate();
+                return;
+            }
+
+            _isCoolingDown = true;
+
+            IsCoolingDownFeedback.FireUpdate();
+
+            // Fake cool-down cycle
+            CooldownTimer = new CTimer(o =>
+            {
+                _isCoolingDown = false;
+                PowerIsOnFeedback.FireUpdate();
+                IsCoolingDownFeedback.FireUpdate();
+            }, CooldownTime);
+
         }
 
         /// <summary>		
