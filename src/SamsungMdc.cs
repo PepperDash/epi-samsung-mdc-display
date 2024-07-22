@@ -1,4 +1,4 @@
-﻿// For Basic SIMPL# Classes
+// For Basic SIMPL# Classes
 // For Basic SIMPL#Pro classes
 
 using Crestron.SimplSharp;
@@ -640,8 +640,8 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// </summary>
         private void Init()
         {
-            WarmupTime = _warmingTimeMs > 0 ? _warmingTimeMs : 15000;
-            CooldownTime = _coolingTimeMs > 0 ? _coolingTimeMs : 15000;
+            WarmupTime = _warmingTimeMs >= 0 ? _warmingTimeMs : 15000;
+            CooldownTime = _coolingTimeMs >= 0 ? _coolingTimeMs : 15000;
 
             InitCommMonitor();
 
