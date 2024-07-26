@@ -368,17 +368,11 @@ namespace PepperDashPluginSamsungMdcDisplay
 
         #endregion
 
-
-        /// <summary>
-        /// Custom activate
-        /// </summary>
-        /// <returns></returns>
-        public override bool CustomActivate()
+        public override void Initialize()
         {
             Communication.Connect();
 
             CommunicationMonitor.Start();
-            return true;
         }
 
         /// <summary>
