@@ -16,6 +16,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using Feedback = PepperDash.Essentials.Core.Feedback;
+using GenericTcpIpClient = PepperDash.Core.GenericTcpIpClient;
 
 namespace PepperDashPluginSamsungMdcDisplay
 {
@@ -211,6 +212,15 @@ namespace PepperDashPluginSamsungMdcDisplay
             ResetDebugLevels();
 
             DeviceInfo = new DeviceInfo();
+
+
+            if (comms is ISocketStatus socket)
+            {
+                if (comms is GenericTcpIpClient tcpip)
+                {
+                    DeviceInfo.IpAddress = tcpip.Hostname;
+                }
+            }
             Init();
         }
 
@@ -1463,21 +1473,26 @@ namespace PepperDashPluginSamsungMdcDisplay
 
         #region Implementation of IDeviceInfoProvider
 
+        //needs testing
         public void UpdateDeviceInfo()
         {
+            /*This is an example structure used in other Get Commands
+            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.PowerControl, 0x00, 0x00, 0x00 });
+            */
+
             if (DeviceInfo == null)
             {
                 DeviceInfo = new DeviceInfo();
             }
 
             //get serial number (0x0B)            
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.SerialNumberControl, Id, 0x00 });
+            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.SerialNumberControl, 0x00, 0x00, 0x00, });
             //get firmware version (0x0E)
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.SwVersionControl, Id, 0x00 });
+            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.SwVersionControl, 0x00, 0x00, 0x00  });
             //get IP Info (0x1B, 0x82)
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.SystemConfiguration, Id, 0x01, SamsungMdcCommands.NetworkConfiguration });
+            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.NetworkConfiguration, 0x00, 0x00, 0x00 });
             //get MAC address (0x1B, 0x81)
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.SystemConfiguration, Id, 0x01, SamsungMdcCommands.SystemConfigurationMacAddress });
+            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.SystemConfigurationMacAddress, 0x00, 0x00, 0x00  });
         }
 
         public DeviceInfo DeviceInfo { get; private set; }
