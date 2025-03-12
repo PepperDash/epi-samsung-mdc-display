@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Newtonsoft.Json;
+using PepperDash.Core;
 
 namespace PepperDashPluginSamsungMdcDisplay
 {
@@ -33,12 +34,16 @@ namespace PepperDashPluginSamsungMdcDisplay
         public List<FriendlyName> FriendlyNames { get; set; }
 
         [JsonProperty("customInputs")]
-        public List<CustomInput> CustomInputs { get; set; } 
+        public List<CustomInput> CustomInputs { get; set; }
+
+        [JsonProperty("activeInputs")]
+        public List<ActiveInputs> ActiveInputs { get; set; } 
 
         public SamsungMdcDisplayPropertiesConfig()
         {
             FriendlyNames = new List<FriendlyName>();
             CustomInputs = new List<CustomInput>();
+            ActiveInputs = new List<ActiveInputs>();
         }
     }
 
@@ -60,4 +65,13 @@ namespace PepperDashPluginSamsungMdcDisplay
         [JsonProperty("inputIdentifier")]
         public string InputIdentifier { get; set; }
     }
-}
+
+    public class ActiveInputs : IKeyName
+        {
+        [JsonProperty("key")]
+        public string Key { get; set; } = string.Empty;
+
+        [JsonProperty("name")]
+        public string Name { get; set; } = string.Empty;
+        }
+    }

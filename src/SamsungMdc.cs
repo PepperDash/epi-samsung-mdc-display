@@ -992,40 +992,57 @@ namespace PepperDashPluginSamsungMdcDisplay
 
 #if SERIES4
         private void SetupInputs()
-        {
-            Inputs = new SamsungInputs
             {
-                Items = new Dictionary<byte, ISelectableItem>
+            if (_config.ActiveInputs != null && _config.ActiveInputs.Count > 0)
                 {
+                Inputs = new SamsungInputs
                     {
-                        SamsungMdcCommands.InputHdmi1, new SamsungInput("hdmi1", "HDMI 1", this, InputHdmi1)
-                    },
-                    {
-                        SamsungMdcCommands.InputHdmi2, new SamsungInput("hdmi2", "HDMI 2", this, InputHdmi2)
-                    },
-                    {
-                        SamsungMdcCommands.InputHdmi3, new SamsungInput("hdmi3", "HDMI 3", this, InputHdmi3)
-                    },
-                    {
-                        SamsungMdcCommands.InputHdmi4, new SamsungInput("hdmi4", "HDMI 4", this, InputHdmi4)
-                    },
-                    {
-                        SamsungMdcCommands.InputDisplayPort1, new SamsungInput("displayPort1", "Display Port 1", this, InputDisplayPort1)
-                    },
-                    {
-                        SamsungMdcCommands.InputDisplayPort2, new SamsungInput("displayPort2", "Display Port 2", this, InputDisplayPort2)
-                    },
-                    {
-                        SamsungMdcCommands.InputDvi1, new SamsungInput("dvi1", "DVI 1", this, InputDvi1)
-                    },
-                    {
-                        SamsungMdcCommands.InputMagicInfo, new SamsungInput("magicInfo", "Magic Info", this, InputMagicInfo)
-                    }
+                    Items = new Dictionary<byte, ISelectableItem>()
+                    };
 
+                var activeInputsMap = _config.ActiveInputs.ToDictionary(ai => ai.Key, ai => ai.Name);
+
+                var allInputs = new Dictionary<string, KeyValuePair<byte, SamsungInput>>
+        {
+            { "hdmi1", new KeyValuePair<byte, SamsungInput>(SamsungMdcCommands.InputHdmi1, new SamsungInput("hdmi1", "HDMI 1", this, InputHdmi1)) },
+            { "hdmi2", new KeyValuePair<byte, SamsungInput>(SamsungMdcCommands.InputHdmi2, new SamsungInput("hdmi2", "HDMI 2", this, InputHdmi2)) },
+            { "hdmi3", new KeyValuePair<byte, SamsungInput>(SamsungMdcCommands.InputHdmi3, new SamsungInput("hdmi3", "HDMI 3", this, InputHdmi3)) },
+            { "hdmi4", new KeyValuePair<byte, SamsungInput>(SamsungMdcCommands.InputHdmi4, new SamsungInput("hdmi4", "HDMI 4", this, InputHdmi4)) },
+            { "displayPort1", new KeyValuePair<byte, SamsungInput>(SamsungMdcCommands.InputDisplayPort1, new SamsungInput("displayPort1", "Display Port 1", this, InputDisplayPort1)) },
+            { "displayPort2", new KeyValuePair<byte, SamsungInput>(SamsungMdcCommands.InputDisplayPort2, new SamsungInput("displayPort2", "Display Port 2", this, InputDisplayPort2)) },
+            { "dvi1", new KeyValuePair<byte, SamsungInput>(SamsungMdcCommands.InputDvi1, new SamsungInput("dvi1", "DVI 1", this, InputDvi1)) },
+            { "magicInfo", new KeyValuePair<byte, SamsungInput>(SamsungMdcCommands.InputMagicInfo, new SamsungInput("magicInfo", "Magic Info", this, InputMagicInfo)) }
+        };
+
+                foreach (var activeInput in activeInputsMap)
+                    {
+                    if (allInputs.TryGetValue(activeInput.Key, out var input))
+                        {
+                        Inputs.Items.Add(input.Key, new SamsungInput(input.Value.Key, activeInput.Value, this, input.Value.Select));
+                        }
+                    }
                 }
-            };
-        }
+            else
+                {
+                Inputs = new SamsungInputs
+                    {
+                    Items = new Dictionary<byte, ISelectableItem>
+            {
+                { SamsungMdcCommands.InputHdmi1, new SamsungInput("hdmi1", "HDMI 1", this, InputHdmi1) },
+                { SamsungMdcCommands.InputHdmi2, new SamsungInput("hdmi2", "HDMI 2", this, InputHdmi2) },
+                { SamsungMdcCommands.InputHdmi3, new SamsungInput("hdmi3", "HDMI 3", this, InputHdmi3) },
+                { SamsungMdcCommands.InputHdmi4, new SamsungInput("hdmi4", "HDMI 4", this, InputHdmi4) },
+                { SamsungMdcCommands.InputDisplayPort1, new SamsungInput("displayPort1", "Display Port 1", this, InputDisplayPort1) },
+                { SamsungMdcCommands.InputDisplayPort2, new SamsungInput("displayPort2", "Display Port 2", this, InputDisplayPort2) },
+                { SamsungMdcCommands.InputDvi1, new SamsungInput("dvi1", "DVI 1", this, InputDvi1) },
+                { SamsungMdcCommands.InputMagicInfo, new SamsungInput("magicInfo", "Magic Info", this, InputMagicInfo) }
+            }
+                    };
+                }
+            }
 #endif
+
+
 
 
         /// <summary>
