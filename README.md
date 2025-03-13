@@ -70,6 +70,28 @@ This plugin was built using the Samsung SEC-VD-DSW Multiple Display Control docu
 		"showVolumeControls": false,
 		"volumeUpperLimit": 100,
 		"volumeLowerLimit": 0,
+		"activeInputs": [
+            {
+              "key": "hdmi1",
+              "name": "HDMI1"
+            },
+            {
+              "key": "hdmi2",
+              "name": "HDMI2"
+            },
+            {
+              "key": "displayPort1",
+              "name": "Display Port"
+            },
+            {
+              "key": "dvi1",
+              "name": "DVI"
+            },
+            {
+              "key": "magicInfo",
+              "name": "Magic Info"
+            }
+          ],
 		"friendlyNames": [
 			{
 				"inputKey": "hdmiIn1",
@@ -133,6 +155,28 @@ This plugin was built using the Samsung SEC-VD-DSW Multiple Display Control docu
 		"showVolumeControls": false,
 		"volumeUpperLimit": 100,
 		"volumeLowerLimit": 0,
+		"activeInputs": [
+            {
+              "key": "hdmi1",
+              "name": "HDMI1"
+            },
+            {
+              "key": "hdmi2",
+              "name": "HDMI2"
+            },
+            {
+              "key": "displayPort1",
+              "name": "Display Port"
+            },
+            {
+              "key": "dvi1",
+              "name": "DVI"
+            },
+            {
+              "key": "magicInfo",
+              "name": "Magic Info"
+            }
+          ],
 		"friendlyNames": [
 			{
 				"inputKey": "hdmiIn1",

@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.9.34728.123
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "epi-display-samsung-mdc.4Series", "src\epi-display-samsung-mdc.4Series.csproj", "{BA640694-458F-4C90-8E1A-55A2B88B4E44}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BA640694-458F-4C90-8E1A-55A2B88B4E44}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BA640694-458F-4C90-8E1A-55A2B88B4E44}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BA640694-458F-4C90-8E1A-55A2B88B4E44}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BA640694-458F-4C90-8E1A-55A2B88B4E44}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C87BEC6E-C55B-4430-B0D7-DABA346D587A}
+	EndGlobalSection
+EndGlobal
