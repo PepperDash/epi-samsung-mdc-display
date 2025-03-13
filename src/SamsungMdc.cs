@@ -9,6 +9,11 @@ using PepperDash.Essentials.Core;
 using PepperDash.Essentials.Core.Bridges;
 using PepperDash.Essentials.Core.DeviceInfo;
 using PepperDash.Essentials.Core.DeviceTypeInterfaces;
+
+#if !SERIES4
+using PepperDash.Essentials.Core.Routing;
+#endif
+
 using PepperDash.Essentials.Devices.Displays;
 using System;
 using System.Collections.Generic;
@@ -17,6 +22,7 @@ using System.Linq;
 using System.Text;
 using Feedback = PepperDash.Essentials.Core.Feedback;
 using GenericTcpIpClient = PepperDash.Core.GenericTcpIpClient;
+
 
 namespace PepperDashPluginSamsungMdcDisplay
 {
@@ -213,14 +219,16 @@ namespace PepperDashPluginSamsungMdcDisplay
 
             DeviceInfo = new DeviceInfo();
 
-
-            if (comms is ISocketStatus socket)
+            ISocketStatus socket = comms as ISocketStatus;
+            if (socket != null)
             {
-                if (comms is GenericTcpIpClient tcpip)
+                GenericTcpIpClient tcpip = comms as GenericTcpIpClient;
+                if (tcpip != null)
                 {
                     DeviceInfo.IpAddress = tcpip.Hostname;
                 }
             }
+
             Init();
         }
 
@@ -963,10 +971,12 @@ namespace PepperDashPluginSamsungMdcDisplay
         {
             if (_powerIsOn)
             {
-                if (selector is Action action)
+                Action actionToExecute = selector as Action;
+                if (actionToExecute != null)
                 {
-                    action();
+                    actionToExecute();
                 }
+
             }
             else // if power is off, wait until we get on FB to send it. 
             {
@@ -980,9 +990,11 @@ namespace PepperDashPluginSamsungMdcDisplay
                     }
 
                     IsWarmingUpFeedback.OutputChange -= handler;
-                    if (selector is Action action)
+
+                    Action actionToExecute = selector as Action;
+                    if (actionToExecute != null)
                     {
-                        action();
+                        actionToExecute();
                     }
                 };
                 IsWarmingUpFeedback.OutputChange += handler; // attach and wait for on FB
@@ -1187,7 +1199,7 @@ namespace PepperDashPluginSamsungMdcDisplay
             }
         }
 
-        #endregion
+#endregion
 
 
 
@@ -1484,7 +1496,7 @@ namespace PepperDashPluginSamsungMdcDisplay
             return c;
         }
 
-        #endregion       
+        #endregion
 
 
 

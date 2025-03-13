@@ -6,7 +6,7 @@
     <Company>PepperDash Technologies</Company>
     <Product>PepperDash Samsung MDC Display</Product>
     <Copyright>Copyright ©  2024</Copyright>
-    <RepositoryUrl>https://github.com/PepperDash/epi-samsung-mdc-dispaly.git</RepositoryUrl>
+    <RepositoryUrl>https://github.com/PepperDash/epi-samsung-mdc-display</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>Crestron; 4series</PackageTags>
     <PackageOutputPath>../output</PackageOutputPath>
