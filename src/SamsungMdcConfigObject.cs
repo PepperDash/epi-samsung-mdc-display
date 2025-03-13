@@ -67,11 +67,19 @@ namespace PepperDashPluginSamsungMdcDisplay
     }
 
     public class ActiveInputs : IKeyName
-        {
+    {
         [JsonProperty("key")]
-        public string Key { get; set; } = string.Empty;
+        public string Key { get; set; }
 
         [JsonProperty("name")]
-        public string Name { get; set; } = string.Empty;
+        public string Name { get; set; }
+
+        public ActiveInputs()
+        {
+            Key = string.Empty;
+            Name = string.Empty;
         }
     }
+        
+
+}
