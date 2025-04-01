@@ -11,11 +11,11 @@ using PepperDashPluginSamsungMdcDisplay;
 namespace PepperDashPluginSamsungMdcDisplay
 {
 #if SERIES4
-    public class SamsungInputs : ISelectableItems<byte>
+    public class SamsungInputs : ISelectableItems<string>
     {
-        private Dictionary<byte, ISelectableItem> _items = new Dictionary<byte, ISelectableItem>();
+        private Dictionary<string, ISelectableItem> _items = new Dictionary<string, ISelectableItem>();
 
-        public Dictionary<byte, ISelectableItem> Items
+        public Dictionary<string, ISelectableItem> Items
         {
             get
             {
@@ -32,9 +32,9 @@ namespace PepperDashPluginSamsungMdcDisplay
             }
         }
 
-        private byte _currentItem;
+        private string _currentItem;
 
-        public byte CurrentItem
+        public string CurrentItem
         {
             get
             {

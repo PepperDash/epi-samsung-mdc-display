@@ -26,13 +26,26 @@ using GenericTcpIpClient = PepperDash.Core.GenericTcpIpClient;
 
 namespace PepperDashPluginSamsungMdcDisplay
 {
-    public class SamsungMdcDisplayController : TwoWayDisplayBase, IBasicVolumeWithFeedback, ICommunicationMonitor,
+    public class SamsungMdcDisplayController : PepperDash.Essentials.Devices.Common.Displays.TwoWayDisplayBase, IBasicVolumeWithFeedback, ICommunicationMonitor,
         IBridgeAdvanced, IDeviceInfoProvider, IInputDisplayPort1, IInputDisplayPort2, IInputHdmi1, IInputHdmi2, IInputHdmi3, IInputHdmi4
 #if SERIES4
-        , IHasInputs<byte, int>
+        , IHasInputs<string>
 #endif
 
     {
+
+        private Dictionary<byte, string> samsungInputMap = new Dictionary<byte, string>
+            {
+                { SamsungMdcCommands.InputHdmi1, "HDMI1" },
+                { SamsungMdcCommands.InputHdmi2, "HDMI2" },
+                { SamsungMdcCommands.InputHdmi3, "HDMI3" },
+                { SamsungMdcCommands.InputHdmi4, "HDMI4" },
+                { SamsungMdcCommands.InputDisplayPort1, "DP1" },
+                { SamsungMdcCommands.InputDisplayPort2, "DP2" },
+                { SamsungMdcCommands.InputDvi1, "DVI" },
+                { SamsungMdcCommands.InputMagicInfo, "MAGICINFO" }
+            };
+
         public StatusMonitorBase CommunicationMonitor { get; private set; }
         public IBasicCommunication Communication { get; private set; }
         private byte[] _incomingBuffer = { };
@@ -99,7 +112,7 @@ namespace PepperDashPluginSamsungMdcDisplay
             }
         }
 #if SERIES4
-        public ISelectableItems<byte> Inputs { get; private set; }
+        public ISelectableItems<string> Inputs { get; private set; }
 
 #endif
 
@@ -1004,54 +1017,24 @@ namespace PepperDashPluginSamsungMdcDisplay
 
 #if SERIES4
         private void SetupInputs()
-            {
-            if (_config.ActiveInputs != null && _config.ActiveInputs.Count > 0)
-                {
-                Inputs = new SamsungInputs
-                    {
-                    Items = new Dictionary<byte, ISelectableItem>()
-                    };
-
-                var activeInputsMap = _config.ActiveInputs.ToDictionary(ai => ai.Key, ai => ai.Name);
-
-                var allInputs = new Dictionary<string, KeyValuePair<byte, SamsungInput>>
         {
-            { "hdmi1", new KeyValuePair<byte, SamsungInput>(SamsungMdcCommands.InputHdmi1, new SamsungInput("hdmi1", "HDMI 1", this, InputHdmi1)) },
-            { "hdmi2", new KeyValuePair<byte, SamsungInput>(SamsungMdcCommands.InputHdmi2, new SamsungInput("hdmi2", "HDMI 2", this, InputHdmi2)) },
-            { "hdmi3", new KeyValuePair<byte, SamsungInput>(SamsungMdcCommands.InputHdmi3, new SamsungInput("hdmi3", "HDMI 3", this, InputHdmi3)) },
-            { "hdmi4", new KeyValuePair<byte, SamsungInput>(SamsungMdcCommands.InputHdmi4, new SamsungInput("hdmi4", "HDMI 4", this, InputHdmi4)) },
-            { "displayPort1", new KeyValuePair<byte, SamsungInput>(SamsungMdcCommands.InputDisplayPort1, new SamsungInput("displayPort1", "Display Port 1", this, InputDisplayPort1)) },
-            { "displayPort2", new KeyValuePair<byte, SamsungInput>(SamsungMdcCommands.InputDisplayPort2, new SamsungInput("displayPort2", "Display Port 2", this, InputDisplayPort2)) },
-            { "dvi1", new KeyValuePair<byte, SamsungInput>(SamsungMdcCommands.InputDvi1, new SamsungInput("dvi1", "DVI 1", this, InputDvi1)) },
-            { "magicInfo", new KeyValuePair<byte, SamsungInput>(SamsungMdcCommands.InputMagicInfo, new SamsungInput("magicInfo", "Magic Info", this, InputMagicInfo)) }
-        };
-
-                foreach (var activeInput in activeInputsMap)
-                    {
-                    if (allInputs.TryGetValue(activeInput.Key, out var input))
-                        {
-                        Inputs.Items.Add(input.Key, new SamsungInput(input.Value.Key, activeInput.Value, this, input.Value.Select));
-                        }
-                    }
-                }
-            else
-                {
-                Inputs = new SamsungInputs
-                    {
-                    Items = new Dictionary<byte, ISelectableItem>
+            Inputs = new SamsungInputs
             {
-                { SamsungMdcCommands.InputHdmi1, new SamsungInput("hdmi1", "HDMI 1", this, InputHdmi1) },
-                { SamsungMdcCommands.InputHdmi2, new SamsungInput("hdmi2", "HDMI 2", this, InputHdmi2) },
-                { SamsungMdcCommands.InputHdmi3, new SamsungInput("hdmi3", "HDMI 3", this, InputHdmi3) },
-                { SamsungMdcCommands.InputHdmi4, new SamsungInput("hdmi4", "HDMI 4", this, InputHdmi4) },
-                { SamsungMdcCommands.InputDisplayPort1, new SamsungInput("displayPort1", "Display Port 1", this, InputDisplayPort1) },
-                { SamsungMdcCommands.InputDisplayPort2, new SamsungInput("displayPort2", "Display Port 2", this, InputDisplayPort2) },
-                { SamsungMdcCommands.InputDvi1, new SamsungInput("dvi1", "DVI 1", this, InputDvi1) },
-                { SamsungMdcCommands.InputMagicInfo, new SamsungInput("magicInfo", "Magic Info", this, InputMagicInfo) }
-            }
-                    };
-                }
-            }
+                Items = new Dictionary<string, ISelectableItem>()
+                    {
+                            { "hdmi1", new SamsungInput("hdmi1", "HDMI 1", this, InputHdmi1) },
+                            { "hdmi2", new SamsungInput("hdmi2", "HDMI 2", this, InputHdmi2) },
+                            { "hdmi3", new SamsungInput("hdmi3", "HDMI 3", this, InputHdmi3) },
+                            { "hdmi4", new SamsungInput("hdmi4", "HDMI 4", this, InputHdmi4) },
+                            { "displayPort1", new SamsungInput("displayPort1", "Display Port 1", this, InputDisplayPort1) },
+                            { "displayPort2", new SamsungInput("displayPort2", "Display Port 2", this, InputDisplayPort2) },
+                            { "dvi1", new SamsungInput("dvi1", "DVI 1", this, InputDvi1) },
+                            { "magicInfo", new SamsungInput("magicInfo", "Magic Info", this, InputMagicInfo) }
+                    }
+            };
+        }
+
+
 #endif
 
 
@@ -1169,16 +1152,16 @@ namespace PepperDashPluginSamsungMdcDisplay
             CurrentInputNumber = inputIndex;
 
 #if SERIES4
-            if (Inputs.Items.ContainsKey(b))
+            if (samsungInputMap.ContainsKey(b))
             {
 
                 foreach (var item in Inputs.Items)
                 {
-                    item.Value.IsSelected = item.Key.Equals(b);
+                    item.Value.IsSelected = item.Key.Equals(samsungInputMap[b]);
                 }
             }
 
-            Inputs.CurrentItem = b;
+            Inputs.CurrentItem = samsungInputMap[b];
 #endif
 
         }
@@ -1199,7 +1182,7 @@ namespace PepperDashPluginSamsungMdcDisplay
             }
         }
 
-#endregion
+        #endregion
 
 
 
@@ -1517,11 +1500,11 @@ namespace PepperDashPluginSamsungMdcDisplay
             //get serial number (0x0B)            
             SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.SerialNumberControl, 0x00, 0x00, 0x00, });
             //get firmware version (0x0E)
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.SwVersionControl, 0x00, 0x00, 0x00  });
+            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.SwVersionControl, 0x00, 0x00, 0x00 });
             //get IP Info (0x1B, 0x82)
             SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.NetworkConfiguration, 0x00, 0x00, 0x00 });
             //get MAC address (0x1B, 0x81)
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.SystemConfigurationMacAddress, 0x00, 0x00, 0x00  });
+            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.SystemConfigurationMacAddress, 0x00, 0x00, 0x00 });
         }
 
         public DeviceInfo DeviceInfo { get; private set; }
