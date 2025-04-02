@@ -26,10 +26,10 @@ using GenericTcpIpClient = PepperDash.Core.GenericTcpIpClient;
 
 namespace PepperDashPluginSamsungMdcDisplay
 {
-    public class SamsungMdcDisplayController : TwoWayDisplayBase, IBasicVolumeWithFeedback, ICommunicationMonitor,
+    public class SamsungMdcDisplayController : PepperDash.Essentials.Devices.Common.Displays.TwoWayDisplayBase, IBasicVolumeWithFeedback, ICommunicationMonitor,
         IBridgeAdvanced, IDeviceInfoProvider, IInputDisplayPort1, IInputDisplayPort2, IInputHdmi1, IInputHdmi2, IInputHdmi3, IInputHdmi4
 #if SERIES4
-        , IHasInputs<byte, int>
+        , IHasInputs<byte>
 #endif
 
     {
