@@ -15,7 +15,6 @@ jobs:
     needs: getVersion
     if: needs.getVersion.outputs.newVersion == 'true'
     with:
-      bypassPackageCheck: true
       newVersion: ${{ needs.getVersion.outputs.newVersion }}
       version: ${{ needs.getVersion.outputs.version }}
       tag: ${{ needs.getVersion.outputs.tag }}
