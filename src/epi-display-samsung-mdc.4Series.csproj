@@ -22,9 +22,6 @@
 	  <PackageTags>crestron 4series samsung mdc</PackageTags>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-	  <DefineConstants>$(DefineConstants);SERIES4</DefineConstants>
-  </PropertyGroup>
 
   <ItemGroup>
     <Compile Remove="Properties\**" />
