@@ -10,10 +10,6 @@ using PepperDash.Essentials.Core.Bridges;
 using PepperDash.Essentials.Core.DeviceInfo;
 using PepperDash.Essentials.Core.DeviceTypeInterfaces;
 
-#if !SERIES4
-using PepperDash.Essentials.Core.Routing;
-#endif
-
 using PepperDash.Essentials.Devices.Displays;
 using System;
 using System.Collections.Generic;
@@ -28,10 +24,7 @@ namespace PepperDashPluginSamsungMdcDisplay
 {
     public class SamsungMdcDisplayController : PepperDash.Essentials.Devices.Common.Displays.TwoWayDisplayBase, IBasicVolumeWithFeedback, ICommunicationMonitor,
         IBridgeAdvanced, IDeviceInfoProvider, IInputDisplayPort1, IInputDisplayPort2, IInputHdmi1, IInputHdmi2, IInputHdmi3, IInputHdmi4
-#if SERIES4
         , IHasInputs<byte>
-#endif
-
     {
         public StatusMonitorBase CommunicationMonitor { get; private set; }
         public IBasicCommunication Communication { get; private set; }
@@ -98,10 +91,7 @@ namespace PepperDashPluginSamsungMdcDisplay
                 UpdateBooleanFeedback();
             }
         }
-#if SERIES4
         public ISelectableItems<byte> Inputs { get; private set; }
-
-#endif
 
         public void SetInput(int value)
         {
@@ -665,9 +655,7 @@ namespace PepperDashPluginSamsungMdcDisplay
 
             StatusGet();
 
-#if SERIES4
             SetupInputs();
-#endif
         }
 
         private void InitCommMonitor()
@@ -1002,7 +990,6 @@ namespace PepperDashPluginSamsungMdcDisplay
             }
         }
 
-#if SERIES4
         private void SetupInputs()
             {
             if (_config.ActiveInputs != null && _config.ActiveInputs.Count > 0)
@@ -1052,7 +1039,6 @@ namespace PepperDashPluginSamsungMdcDisplay
                     };
                 }
             }
-#endif
 
 
 
@@ -1168,7 +1154,6 @@ namespace PepperDashPluginSamsungMdcDisplay
             }
             CurrentInputNumber = inputIndex;
 
-#if SERIES4
             if (Inputs.Items.ContainsKey(b))
             {
 
@@ -1179,7 +1164,6 @@ namespace PepperDashPluginSamsungMdcDisplay
             }
 
             Inputs.CurrentItem = b;
-#endif
 
         }
 
