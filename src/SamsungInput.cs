@@ -10,7 +10,6 @@ using PepperDashPluginSamsungMdcDisplay;
 
 namespace PepperDashPluginSamsungMdcDisplay
 {
-#if SERIES4
     public class SamsungInputs : ISelectableItems<byte>
     {
         private Dictionary<byte, ISelectableItem> _items = new Dictionary<byte, ISelectableItem>();
@@ -97,5 +96,4 @@ namespace PepperDashPluginSamsungMdcDisplay
             _inputMethod();
         }
     }
-#endif
 }
