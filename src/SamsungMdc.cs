@@ -22,17 +22,43 @@ using GenericTcpIpClient = PepperDash.Core.GenericTcpIpClient;
 
 namespace PepperDashPluginSamsungMdcDisplay
 {
+    /// <summary>
+    /// Represents a Samsung MDC (Multiple Display Control) display controller that provides comprehensive 
+    /// display management including power control, input switching, volume control, and temperature monitoring.
+    /// Implements routing functionality for audio/video signals and supports Samsung's MDC protocol for communication.
+    /// </summary>
     public class SamsungMdcDisplayController : PepperDash.Essentials.Devices.Common.Displays.TwoWayDisplayBase, IBasicVolumeWithFeedback, ICommunicationMonitor,
         IBridgeAdvanced, IDeviceInfoProvider, IInputDisplayPort1, IInputDisplayPort2, IInputHdmi1, IInputHdmi2, IInputHdmi3, IInputHdmi4
         , IHasInputs<byte>
     {
+        /// <summary>
+        /// Gets the communication monitor that tracks the status of the connection to the display device.
+        /// Provides feedback on connection health and communication reliability.
+        /// </summary>
+        /// <value>The communication monitor instance for this display controller.</value>
         public StatusMonitorBase CommunicationMonitor { get; private set; }
+        
+        /// <summary>
+        /// Gets the communication interface used to send and receive data to/from the display device.
+        /// This handles the low-level TCP/IP or serial communication with the Samsung MDC protocol.
+        /// </summary>
+        /// <value>The communication interface instance.</value>
         public IBasicCommunication Communication { get; private set; }
         private byte[] _incomingBuffer = { };
 
+        /// <summary>
+        /// Gets or sets the status feedback that provides information about the communication monitor's current state.
+        /// </summary>
+        /// <value>An integer feedback representing the current status of the communication monitor.</value>
         public IntFeedback StatusFeedback { get; set; }
 
         private readonly SamsungMdcDisplayPropertiesConfig _config;
+        
+        /// <summary>
+        /// Gets the unique identifier (ID) for this display device used in MDC protocol communication.
+        /// This ID must be unique when multiple displays are connected on the same communication bus.
+        /// </summary>
+        /// <value>The device ID as a byte value, typically ranging from 0x01 to 0xFF.</value>
         public byte Id { get; private set; }
         private readonly uint _coolingTimeMs;
         private readonly uint _warmingTimeMs;
@@ -62,9 +88,25 @@ namespace PepperDashPluginSamsungMdcDisplay
         }
 
 
+        /// <summary>
+        /// Gets a static list of input keys available for the display controller.
+        /// This list contains string identifiers for all supported input types.
+        /// </summary>
+        /// <value>A list of string keys representing available inputs.</value>
         public static List<string> InputKeys = new List<string>();
 
+        /// <summary>
+        /// Gets the list of boolean feedback objects that indicate which input is currently selected.
+        /// Each feedback corresponds to a specific input port and indicates its selection state.
+        /// </summary>
+        /// <value>A list of boolean feedback objects for input selection states.</value>
         public List<BoolFeedback> InputFeedback;
+        
+        /// <summary>
+        /// Gets the integer feedback that represents the currently selected input number.
+        /// This provides a numeric representation of the active input port.
+        /// </summary>
+        /// <value>An integer feedback representing the current input number.</value>
         public IntFeedback InputNumberFeedback;
 
         private RoutingInputPort _currentInputPort;
@@ -74,6 +116,11 @@ namespace PepperDashPluginSamsungMdcDisplay
         }
 
         private int _currentInputNumber;
+        /// <summary>
+        /// Gets or sets the currently selected input number. Setting this property updates the input feedback 
+        /// and triggers feedback updates for the current input and boolean input states.
+        /// </summary>
+        /// <value>The numeric identifier of the currently selected input port (1-based indexing).</value>
         public int CurrentInputNumber
         {
             get
@@ -91,8 +138,19 @@ namespace PepperDashPluginSamsungMdcDisplay
                 UpdateBooleanFeedback();
             }
         }
+        
+        /// <summary>
+        /// Gets the collection of selectable input items available on this display device.
+        /// Each item represents an input port that can be selected for signal routing.
+        /// </summary>
+        /// <value>A collection of selectable input items indexed by byte values.</value>
         public ISelectableItems<byte> Inputs { get; private set; }
 
+        /// <summary>
+        /// Sets the display input to the specified input number. The input is validated against 
+        /// the available input ports before execution.
+        /// </summary>
+        /// <param name="value">The input number to select (1-based indexing). Must be within the range of available input ports.</param>
         public void SetInput(int value)
         {
             if (value <= 0 || value >= InputPorts.Count) return;
@@ -118,11 +176,20 @@ namespace PepperDashPluginSamsungMdcDisplay
 
 
 
+        /// <summary>
+        /// Retrieves the routing input port at the specified index.
+        /// </summary>
+        /// <param name="input">The zero-based index of the input port to retrieve.</param>
+        /// <returns>The routing input port at the specified index.</returns>
         private RoutingInputPort GetInputPort(int input)
         {
             return InputPorts.ElementAt(input);
         }
 
+        /// <summary>
+        /// Lists all available input ports to the debug console with detailed information about each port.
+        /// This method is useful for debugging and verifying the input port configuration.
+        /// </summary>
         public void ListInputPorts()
         {
             Debug.Console(DebugLevelTrace, this, "InputPorts.Count-'{0}'", InputPorts.Count);
@@ -153,11 +220,28 @@ namespace PepperDashPluginSamsungMdcDisplay
 
 
 
+        /// <summary>
+        /// Gets the feedback object that provides the current LED temperature in Celsius.
+        /// This feedback is updated when temperature monitoring data is received from the display.
+        /// </summary>
+        /// <value>An integer feedback representing the LED temperature in Celsius.</value>
         public IntFeedback CurrentLedTemperatureCelsiusFeedback;
+        
+        /// <summary>
+        /// Gets the feedback object that provides the current LED temperature in Fahrenheit.
+        /// This feedback is updated when temperature monitoring data is received from the display.
+        /// </summary>
+        /// <value>An integer feedback representing the LED temperature in Fahrenheit.</value>
         public IntFeedback CurrentLedTemperatureFahrenheitFeedback;
 
         private readonly bool _pollLedTemps;
         private int _currentLedTemperatureCelsius;
+        
+        /// <summary>
+        /// Gets or sets the current LED temperature in Celsius. Setting this property 
+        /// automatically updates the corresponding feedback object.
+        /// </summary>
+        /// <value>The LED temperature in Celsius (0-254 range).</value>
         public int CurrentLedTemperatureCelsius
         {
             get { return _currentLedTemperatureCelsius; }
@@ -168,6 +252,12 @@ namespace PepperDashPluginSamsungMdcDisplay
             }
         }
         private int _currentLedTemperatureFahrenheit;
+        
+        /// <summary>
+        /// Gets or sets the current LED temperature in Fahrenheit. Setting this property 
+        /// automatically updates the corresponding feedback object.
+        /// </summary>
+        /// <value>The LED temperature in Fahrenheit.</value>
         public int CurrentLedTemperatureFahrenheit
         {
             get { return _currentLedTemperatureFahrenheit; }
@@ -180,12 +270,13 @@ namespace PepperDashPluginSamsungMdcDisplay
 
 
         /// <summary>
-        /// Constructor for IBaseCommunication
+        /// Initializes a new instance of the SamsungMdcDisplayController class with the specified parameters.
+        /// Sets up communication, configuration, and all necessary feedback mechanisms for display control.
         /// </summary>
-        /// <param name="name"></param>
-        /// <param name="config"></param>
-        /// <param name="key"></param>
-        /// <param name="comms"></param>
+        /// <param name="key">The unique key identifier for this device instance.</param>
+        /// <param name="name">The friendly name for this display device.</param>
+        /// <param name="config">The configuration object containing display-specific settings such as polling intervals, volume limits, and custom inputs.</param>
+        /// <param name="comms">The communication interface for sending and receiving data to/from the display device.</param>
         public SamsungMdcDisplayController(string key, string name, SamsungMdcDisplayPropertiesConfig config,
             IBasicCommunication comms)
             : base(key, name)
@@ -222,6 +313,11 @@ namespace PepperDashPluginSamsungMdcDisplay
             Init();
         }
 
+        /// <summary>
+        /// Gets the collection of all feedback objects provided by this display controller.
+        /// This includes base feedback plus volume, mute, input, and temperature feedback objects.
+        /// </summary>
+        /// <value>A comprehensive collection of all feedback objects for this device.</value>
         public override FeedbackCollection<Feedback> Feedbacks
         {
             get
@@ -244,12 +340,13 @@ namespace PepperDashPluginSamsungMdcDisplay
         #region IBridgeAdvanced Members
 
         /// <summary>
-        /// LinkToApi (bridge method)
+        /// Links this display controller to a SIMPL bridge API, enabling communication between 
+        /// the SIMPL program and this device. Sets up all necessary joins for control and feedback.
         /// </summary>
-        /// <param name="trilist"></param>
-        /// <param name="joinStart"></param>
-        /// <param name="joinMapKey"></param>
-        /// <param name="bridge"></param>
+        /// <param name="trilist">The BasicTriList (EISC) that provides the bridge interface.</param>
+        /// <param name="joinStart">The starting join number for mapping this device's controls and feedback.</param>
+        /// <param name="joinMapKey">The key used to identify a custom join map configuration, if available.</param>
+        /// <param name="bridge">The advanced bridge API instance for join map management.</param>
         public void LinkToApi(BasicTriList trilist, uint joinStart, string joinMapKey, EiscApiAdvanced bridge)
         {
             var joinMap = new SamsungDisplayControllerJoinMap(joinStart);
@@ -376,6 +473,10 @@ namespace PepperDashPluginSamsungMdcDisplay
 
         #endregion
 
+        /// <summary>
+        /// Initializes the display controller by establishing communication and starting the communication monitor.
+        /// This method should be called after the device has been constructed and configured.
+        /// </summary>
         public override void Initialize()
         {
             Communication.Connect();
