@@ -1,71 +1,76 @@
 ﻿namespace PepperDashPluginSamsungMdcDisplay
 {
+    /// <summary>
+    /// Contains constant values for Samsung MDC (Multiple Display Control) protocol commands and parameters.
+    /// These constants represent the command bytes, data values, and control codes used in MDC communication.
+    /// All values are documented according to Samsung's MDC protocol specification.
+    /// </summary>
     public class SamsungMdcCommands
     {
         /// <summary>
-        /// Header byte
+        /// Header byte that starts all MDC protocol messages. Always 0xAA for Samsung MDC.
         /// </summary>
         public const byte Header = 0xAA;
 
         /// <summary>
-        /// 2.1.00 Status control (Cmd: 0x00)
-        /// Gets the current status, status includes: val1=Power, val2=Volume, val3=Mute, val4=Input, val5=Aspect, val6=N Time NF, val7=F Time NF
+        /// Command byte for status control operations (0x00). 
+        /// Gets the current status including power, volume, mute, input, aspect ratio, and timing information.
         /// </summary>
         public const byte StatusControl = 0x00;
 
         /// <summary>
-        /// 2.1.00 Status control (r-Cmd: 0x00)
+        /// Response command byte for status control operations (0x00).
         /// </summary>
         public const byte StatusControlRcmd = 0x00;
 
         /// <summary>
-        /// 2.1.0D Display status control (Cmd: 0x0D)
-        /// Gets the display status, status includes: val1=LampErr, val2=TemperatureErr, val3=Bright_Sensor-or-Err, val4=No_SyncErr, val5=Current_Temp, val6=FanErr
+        /// Command byte for display status control operations (0x0D).
+        /// Gets display-specific status including lamp errors, temperature errors, brightness sensor status, 
+        /// sync errors, current temperature, and fan errors.
         /// </summary>
         public const byte DisplayStatusControl = 0x0D;
 
         /// <summary>
-        /// 2.1.11 Power control (Cmd: 0x11)
-        /// Gets/sets the power state
+        /// Command byte for power control operations (0x11).
+        /// Used to get or set the power state of the display device.
         /// </summary>
         public const byte PowerControl = 0x11;
 
         /// <summary>
-        /// 2.1.11 Power control val-1 = on
+        /// Data value for power on command (0x01). Used with PowerControl command.
         /// </summary>
         public const byte PowerOn = 0x01;
 
         /// <summary>
-        /// 2.1.11 Power control val-1 = off
+        /// Data value for power off command (0x00). Used with PowerControl command.
         /// </summary>
         public const byte PowerOff = 0x00;
 
         /// <summary>
-        /// 2.1.12 Volume control (Cmd: 0x12)
-        /// Gets/sets the volume level
-        /// Level range 0d - 100d (0x00 - 0x64)
+        /// Command byte for volume control operations (0x12).
+        /// Used to get or set the volume level. Volume range is 0-100 (0x00-0x64).
         /// </summary>
         public const byte VolumeControl = 0x12;
 
         /// <summary>
-        /// 2.1.13 Mute control (Cmd: 0x13)
-        /// Gets/sets the volume mute state
+        /// Command byte for mute control operations (0x13).
+        /// Used to get or set the audio mute state of the display.
         /// </summary>
         public const byte MuteControl = 0x13;
 
         /// <summary>
-        /// 2.1.13 Mute control val-1 = on
+        /// Data value for mute on command (0x01). Used with MuteControl command.
         /// </summary>
         public const byte MuteOn = 0x01;
 
         /// <summary>
-        /// 2.1.13 Mute control val-1 = off
+        /// Data value for mute off command (0x00). Used with MuteControl command.
         /// </summary>
         public const byte MuteOff = 0x00;
 
         /// <summary>
-        /// 2.1.14 Input source control (Cmd: 0x14)
-        /// Gets/sets the input state
+        /// Command byte for input source control operations (0x14).
+        /// Used to get or set the active input source on the display.
         /// </summary>
         public const byte InputSourceControl = 0x14;
 
@@ -95,82 +100,82 @@
         public const byte InputScart1 = 0x0E;
 
         /// <summary>
-        /// 2.1.14 Input source control - DVI1
+        /// Input source value for DVI port 1 (0x18). Used with InputSourceControl command.
         /// </summary>
         public const byte InputDvi1 = 0x18;
 
         /// <summary>
-        /// 2.1.14 Input source control - PC1
+        /// Input source value for PC port 1 (0x14). Used with InputSourceControl command.
         /// </summary>
         public const byte InputPc1 = 0x14;
 
         /// <summary>
-        /// 2.1.14 Input source control - BNC1
+        /// Input source value for BNC port 1 (0x1E). Used with InputSourceControl command.
         /// </summary>
         public const byte InputBnc1 = 0x1E;
 
         /// <summary>
-        /// 2.1.14 Input source control - DVI Video1
+        /// Input source value for DVI Video port 1 (0x1F). Used with InputSourceControl command.
         /// </summary>
         public const byte InputDviVideo1 = 0x1F;
 
         /// <summary>
-        /// 2.1.14 Input source control - HDMI1
+        /// Input source value for HDMI port 1 (0x21). Used with InputSourceControl command.
         /// </summary>
         public const byte InputHdmi1 = 0x21;
 
         /// <summary>
-        /// 2.1.14 Input source control - HDMI1 PC
+        /// Input source value for HDMI port 1 in PC mode (0x22). Used with InputSourceControl command.
         /// </summary>
         public const byte InputHdmi1Pc = 0x22;
 
         /// <summary>
-        /// 2.1.14 Input source control - HDMI2
+        /// Input source value for HDMI port 2 (0x23). Used with InputSourceControl command.
         /// </summary>
         public const byte InputHdmi2 = 0x23;
 
         /// <summary>
-        /// 2.1.14 Input source control - HDMI2 PC
+        /// Input source value for HDMI port 2 in PC mode (0x24). Used with InputSourceControl command.
         /// </summary>
         public const byte InputHdmi2Pc = 0x24;
 
         /// <summary>
-        /// 2.1.14 Input source control - DisplayPort1
+        /// Input source value for DisplayPort 1 (0x25). Used with InputSourceControl command.
         /// </summary>
         public const byte InputDisplayPort1 = 0x25;
 
         /// <summary>
-        /// 2.1.14 Input source control - DisplayPort2
+        /// Input source value for DisplayPort 2 (0x26). Used with InputSourceControl command.
         /// </summary>
         public const byte InputDisplayPort2 = 0x26;
 
         /// <summary>
-        /// 2.1.14 Input source control - DisplayPort3
+        /// Input source value for DisplayPort 3 (0x27). Used with InputSourceControl command.
         /// </summary>
         public const byte InputDisplayPort3 = 0x27;
 
         /// <summary>
-        /// 2.1.14 Input source control - HDMI3
+        /// Input source value for HDMI port 3 (0x31). Used with InputSourceControl command.
         /// </summary>
         public const byte InputHdmi3 = 0x31;
 
         /// <summary>
-        /// 2.1.14 Input source control - HDMI3 PC
+        /// Input source value for HDMI port 3 in PC mode (0x32). Used with InputSourceControl command.
         /// </summary>
         public const byte InputHdmi3Pc = 0x32;
 
         /// <summary>
-        /// 2.1.14 Input source control - HDMI4
+        /// Input source value for HDMI port 4 (0x33). Used with InputSourceControl command.
         /// </summary>
         public const byte InputHdmi4 = 0x33;
 
         /// <summary>
-        /// 2.1.14 Input source control - HDMI4 PC
+        /// Input source value for HDMI port 4 in PC mode (0x34). Used with InputSourceControl command.
         /// </summary>
         public const byte InputHdmi4Pc = 0x34;
 
         /// <summary>
-        /// 2.1.14 Input source control - MagicInfo
+        /// Input source value for MagicInfo player (0x20). Used with InputSourceControl command.
         /// </summary>
         public const byte InputMagicInfo = 0x20;
 

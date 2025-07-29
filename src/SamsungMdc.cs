@@ -913,8 +913,9 @@ namespace PepperDashPluginSamsungMdcDisplay
         #region Power
 
         /// <summary>
-        /// Power on (Cmd: 0x11) pdf page 42 
-        /// Set: [HEADER=0xAA][Cmd=0x11][ID][DATA_LEN=0x01][DATA-1=0x01][CS=0x00]
+        /// Powers on the display device using the Samsung MDC protocol. If the display is already on,
+        /// warming up, or cooling down, the method returns without taking action. Implements a warmup
+        /// cycle if configured, during which the warming up feedback will be active.
         /// </summary>
         public override void PowerOn()
         {
@@ -950,8 +951,9 @@ namespace PepperDashPluginSamsungMdcDisplay
         }
 
         /// <summary>
-        /// Power off (Cmd: 0x11) pdf page 42 
-        /// Set: [HEADER=0xAA][Cmd=0x11][ID][DATA_LEN=0x01][DATA-1=0x00][CS=0x00]
+        /// Powers off the display device using the Samsung MDC protocol. If the display is already off,
+        /// warming up, or cooling down, the method returns without taking action. Implements a cooldown
+        /// cycle if configured, during which the cooling down feedback will be active.
         /// </summary>
         public override void PowerOff()
         {
@@ -991,9 +993,10 @@ namespace PepperDashPluginSamsungMdcDisplay
 
         }
 
-        /// <summary>		
-        /// Power toggle (Cmd: 0x11) pdf page 42 
-        /// Set: [HEADER=0xAA][Cmd=0x11][ID][DATA_LEN=0x01][DATA-1=0x01||0x00][CS=0x00]
+        /// <summary>
+        /// Toggles the power state of the display. If the display is currently on and not warming up,
+        /// it will be powered off. If the display is currently off and not cooling down, it will be powered on.
+        /// No action is taken if the display is in a transitional state (warming up or cooling down).
         /// </summary>
         public override void PowerToggle()
         {
@@ -1008,8 +1011,8 @@ namespace PepperDashPluginSamsungMdcDisplay
         }
 
         /// <summary>
-        /// Power on (Cmd: 0x11) pdf page 42 
-        /// Get: [HEADER=0xAA][Cmd=0x11][ID][DATA_LEN=0x00][CS=0x00]		
+        /// Requests the current power status from the display device using the Samsung MDC protocol.
+        /// The response will be processed by the feedback parsing system and update the power state feedback.
         /// </summary>
         public void PowerGet()
         {
@@ -1145,8 +1148,7 @@ namespace PepperDashPluginSamsungMdcDisplay
 
 
         /// <summary>
-        /// Input HDMI 1 (Cmd: 0x14) pdf page 426
-        /// Set: [HEADER=0xAA][Cmd=0x14][ID][DATA_LEN=0x01][DATA-1=0x21][CS=0x00]
+        /// Switches the display input to HDMI port 1 using the Samsung MDC protocol.
         /// </summary>
         public void InputHdmi1()
         {
@@ -1154,8 +1156,7 @@ namespace PepperDashPluginSamsungMdcDisplay
         }
 
         /// <summary>
-        /// Input HDMI 2 (Cmd: 0x14) pdf page 426
-        /// Set: [HEADER=0xAA][Cmd=0x14][ID][DATA_LEN=0x01][DATA-1=0x23][CS=0x00]
+        /// Switches the display input to HDMI port 2 using the Samsung MDC protocol.
         /// </summary>
         public void InputHdmi2()
         {
@@ -1163,8 +1164,7 @@ namespace PepperDashPluginSamsungMdcDisplay
         }
 
         /// <summary>
-        /// Input HDMI 3 (Cmd: 0x14) pdf page 426
-        /// Set: [HEADER=0xAA][Cmd=0x14][ID][DATA_LEN=0x01][DATA-1=0x31][CS=0x00]
+        /// Switches the display input to HDMI port 3 using the Samsung MDC protocol.
         /// </summary>
         public void InputHdmi3()
         {
@@ -1172,8 +1172,7 @@ namespace PepperDashPluginSamsungMdcDisplay
         }
 
         /// <summary>
-        /// Input HDMI 4 (Cmd: 0x14) pdf page 426
-        /// Set: [HEADER=0xAA][Cmd=0x14][ID][DATA_LEN=0x01][DATA-1=0x33][CS=0x00]
+        /// Switches the display input to HDMI port 4 using the Samsung MDC protocol.
         /// </summary>
         public void InputHdmi4()
         {
@@ -1181,8 +1180,7 @@ namespace PepperDashPluginSamsungMdcDisplay
         }
 
         /// <summary>
-        /// Input DisplayPort 1 (Cmd: 0x14) pdf page 426
-        /// Set: [HEADER=0xAA][Cmd=0x14][ID][DATA_LEN=0x01][DATA-1=0x25][CS=0x00]
+        /// Switches the display input to DisplayPort 1 using the Samsung MDC protocol.
         /// </summary>
         public void InputDisplayPort1()
         {
@@ -1190,8 +1188,7 @@ namespace PepperDashPluginSamsungMdcDisplay
         }
 
         /// <summary>
-        /// Input DisplayPort 2 (Cmd: 0x14) pdf page 426
-        /// Set: [HEADER=0xAA][Cmd=0x14][ID][DATA_LEN=0x01][DATA-1=0x26][CS=0x00]
+        /// Switches the display input to DisplayPort 2 using the Samsung MDC protocol.
         /// </summary>
         public void InputDisplayPort2()
         {
@@ -1199,8 +1196,7 @@ namespace PepperDashPluginSamsungMdcDisplay
         }
 
         /// <summary>
-        /// Input DVI 1 (Cmd: 0x14) pdf page 426
-        /// Set: [HEADER=0xAA][Cmd=0x14][ID][DATA_LEN=0x01][DATA-1=0x18][CS=0x00]
+        /// Switches the display input to DVI port 1 using the Samsung MDC protocol.
         /// </summary>
         public void InputDvi1()
         {
@@ -1208,8 +1204,7 @@ namespace PepperDashPluginSamsungMdcDisplay
         }
 
         /// <summary>
-        /// Input DVI 1 (Cmd: 0x14) pdf page 426
-        /// Set: [HEADER=0xAA][Cmd=0x14][ID][DATA_LEN=0x01][DATA-1=0x20][CS=0x00]
+        /// Switches the display input to the built-in MagicInfo player using the Samsung MDC protocol.
         /// </summary>
         public void InputMagicInfo()
         {
@@ -1217,8 +1212,8 @@ namespace PepperDashPluginSamsungMdcDisplay
         }
 
         /// <summary>
-        /// Input HDMI 1 (Cmd: 0x14) pdf page 426
-        /// Get: [HEADER=0xAA][Cmd=0x14][ID][DATA_LEN=0x00][CS=0x00]
+        /// Requests the current input source status from the display device using the Samsung MDC protocol.
+        /// The response will be processed by the feedback parsing system and update the input feedback.
         /// </summary>
         public void InputGet()
         {
@@ -1291,23 +1286,25 @@ namespace PepperDashPluginSamsungMdcDisplay
         #region IBasicVolumeWithFeedback Members
 
         /// <summary>
-        /// Volume level feedback property
+        /// Gets the feedback object that provides the current volume level of the display.
+        /// The feedback value is scaled to a 0-65535 range regardless of the display's internal volume scale.
         /// </summary>
+        /// <value>An integer feedback representing the current volume level (0-65535).</value>
         public IntFeedback VolumeLevelFeedback { get; private set; }
 
         /// <summary>
-        /// volume mte feedback property
+        /// Gets the feedback object that indicates whether the display audio is currently muted.
         /// </summary>
+        /// <value>A boolean feedback that is true when the display is muted, false otherwise.</value>
         public BoolFeedback MuteFeedback { get; private set; }
 
 
         /// <summary>
-        /// Scales the level to the range of the display and sends the command
-        /// Volume level control (Cmd: 0x12) pdf page 44
-        /// Level range 0d - 100d (0x00 - 0x64)		
-        /// Set: [HEADER=0xAA][Cmd=0x12][ID][DATA_LEN=0x01][DATA-1=(Scaled)][CS=0x00]
+        /// Sets the volume level of the display. The level is automatically scaled to the display's 
+        /// supported range (0-100) and sent via the Samsung MDC protocol. If the display is currently 
+        /// muted, it will be unmuted when this method is called.
         /// </summary>
-        /// <param name="level"></param>
+        /// <param name="level">The volume level to set, in the range 0-65535. This will be scaled to the display's internal range.</param>
         public void SetVolume(ushort level)
         {
             int scaled;
@@ -1329,9 +1326,10 @@ namespace PepperDashPluginSamsungMdcDisplay
         }
 
         /// <summary>
-        /// Volume down (decrement)
+        /// Decreases the volume level of the display. Uses an incremental ramping mechanism that continues
+        /// while the method is pressed and stops when released. Automatically unmutes the display if it is muted.
         /// </summary>
-        /// <param name="pressRelease"></param>
+        /// <param name="pressRelease">True when the volume down action is initiated (press), false when it should stop (release).</param>
         public void VolumeDown(bool pressRelease)
         {
             if (pressRelease)
@@ -1351,9 +1349,10 @@ namespace PepperDashPluginSamsungMdcDisplay
         }
 
         /// <summary>
-        /// Volume up (increment)
+        /// Increases the volume level of the display. Uses an incremental ramping mechanism that continues
+        /// while the method is pressed and stops when released. Automatically unmutes the display if it is muted.
         /// </summary>
-        /// <param name="pressRelease"></param>
+        /// <param name="pressRelease">True when the volume up action is initiated (press), false when it should stop (release).</param>
         public void VolumeUp(bool pressRelease)
         {
             if (pressRelease)
