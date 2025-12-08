@@ -5,6 +5,7 @@ using Crestron.SimplSharp;
 using Crestron.SimplSharpPro.DeviceSupport;
 using Newtonsoft.Json;
 using PepperDash.Core;
+using PepperDash.Core.Logging;
 using PepperDash.Essentials.Core;
 using PepperDash.Essentials.Core.Bridges;
 using PepperDash.Essentials.Core.DeviceInfo;
@@ -13,6 +14,7 @@ using PepperDash.Essentials.Core.DeviceTypeInterfaces;
 using PepperDash.Essentials.Devices.Displays;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Linq;
 using System.Text;
@@ -24,7 +26,7 @@ namespace PepperDashPluginSamsungMdcDisplay
 {
     public class SamsungMdcDisplayController : PepperDash.Essentials.Devices.Common.Displays.TwoWayDisplayBase, IBasicVolumeWithFeedback, ICommunicationMonitor,
         IBridgeAdvanced, IDeviceInfoProvider, IInputDisplayPort1, IInputDisplayPort2, IInputHdmi1, IInputHdmi2, IInputHdmi3, IInputHdmi4
-        , IHasInputs<byte>
+        , IHasInputs<byte>, IRoutingSinkWithSwitchingWithInputPort
     {
         public StatusMonitorBase CommunicationMonitor { get; private set; }
         public IBasicCommunication Communication { get; private set; }
@@ -67,10 +69,10 @@ namespace PepperDashPluginSamsungMdcDisplay
         public List<BoolFeedback> InputFeedback;
         public IntFeedback InputNumberFeedback;
 
-        private RoutingInputPort _currentInputPort;
+
         protected override Func<string> CurrentInputFeedbackFunc
         {
-            get { return () => _currentInputPort != null ? _currentInputPort.Key : string.Empty; }
+            get { return () => CurrentInputPort != null ? CurrentInputPort.Key : string.Empty; }
         }
 
         private int _currentInputNumber;
@@ -83,7 +85,7 @@ namespace PepperDashPluginSamsungMdcDisplay
             private set
             {
                 _currentInputNumber = value;
-                Debug.Console(DebugLevelDebug, this, "CurrentInputNumber: _currentInputNumber-'{0}'", _currentInputNumber);
+                this.LogDebug("CurrentInputNumber: _currentInputNumber-'{currentInput}'", _currentInputNumber);
 
                 CurrentInputFeedback.FireUpdate();
                 InputNumberFeedback.FireUpdate();
@@ -97,23 +99,21 @@ namespace PepperDashPluginSamsungMdcDisplay
         {
             if (value <= 0 || value >= InputPorts.Count) return;
 
-            Debug.Console(DebugLevelDebug, this, "SetInput: value-'{0}'", value);
+            this.LogDebug("SetInput: value-'{0}'", value);
 
             // -1 to get actual input after'0d' check                
             var port = GetInputPort(value - 1);
             if (port == null)
             {
-                Debug.Console(DebugLevelDebug, this, "SetInput: failed to get input port");
+                this.LogDebug("SetInput: failed to get input port");
                 return;
             }
 
-            Debug.Console(DebugLevelDebug, this, "SetInput: port.Key-'{0}', port.Selector-'{1}', port.ConnectionType-'{2}', port.FeedbackMatchObject-'{3}'",
+            this.LogDebug("SetInput: port.Key-'{0}', port.Selector-'{1}', port.ConnectionType-'{2}', port.FeedbackMatchObject-'{3}'",
                 port.Key, port.Selector, port.ConnectionType, port.FeedbackMatchObject);
 
             ExecuteSwitch(port.Selector);
             UpdateInputFb((byte)port.FeedbackMatchObject);
-
-
         }
 
 
@@ -123,20 +123,8 @@ namespace PepperDashPluginSamsungMdcDisplay
             return InputPorts.ElementAt(input);
         }
 
-        public void ListInputPorts()
-        {
-            Debug.Console(DebugLevelTrace, this, "InputPorts.Count-'{0}'", InputPorts.Count);
-            foreach (var inputPort in InputPorts)
-            {
-                Debug.Console(DebugLevelTrace, this, "inputPort.Key-'{0}', inputPort.Selector-'{1}', inputPort.ConnectionType-'{2}', inputPort.FeedbackMatchObject-'{3}'",
-                    inputPort.Key, inputPort.Selector, inputPort.ConnectionType, inputPort.FeedbackMatchObject);
-            }
-        }
-
         public const int InputPowerOn = 101;
         public const int InputPowerOff = 102;
-
-
 
         private readonly int _lowerLimit;
         private readonly int _upperLimit;
@@ -150,8 +138,6 @@ namespace PepperDashPluginSamsungMdcDisplay
 
         private readonly bool _showVolumeControls;
         private ActionIncrementer _volumeIncrementer;
-
-
 
         public IntFeedback CurrentLedTemperatureCelsiusFeedback;
         public IntFeedback CurrentLedTemperatureFahrenheitFeedback;
@@ -205,15 +191,11 @@ namespace PepperDashPluginSamsungMdcDisplay
             _pollLedTemps = config.PollLedTemps;
             _customInputs = config.CustomInputs;
 
-            ResetDebugLevels();
-
             DeviceInfo = new DeviceInfo();
 
-            ISocketStatus socket = comms as ISocketStatus;
-            if (socket != null)
+            if (comms is ISocketStatus socket)
             {
-                GenericTcpIpClient tcpip = comms as GenericTcpIpClient;
-                if (tcpip != null)
+                if (comms is GenericTcpIpClient tcpip)
                 {
                     DeviceInfo.IpAddress = tcpip.Hostname;
                 }
@@ -264,8 +246,8 @@ namespace PepperDashPluginSamsungMdcDisplay
                 joinMap = JsonConvert.DeserializeObject<SamsungDisplayControllerJoinMap>(joinMapSerialized);
             }
 
-            Debug.Console(DebugLevelDebug, "Linking to Trilist '{0}'", trilist.ID.ToString("X"));
-            Debug.Console(DebugLevelTrace, "Linking to Display: {0}", Name);
+            this.LogDebug("Linking to Trilist '{0}'", trilist.ID.ToString("X"));
+            this.LogVerbose("Linking to Display: {0}", Name);
 
             //trilist.StringInput[joinMap.Name.JoinNumber].StringValue = Name;
             trilist.SetString(joinMap.Name.JoinNumber, Name);
@@ -291,7 +273,7 @@ namespace PepperDashPluginSamsungMdcDisplay
                 var inputIndex = count + 1;
                 trilist.SetSigTrueAction((ushort)(joinMap.InputSelectOffset.JoinNumber + count), () =>
                     {
-                        Debug.Console(DebugLevelVerbose, this, "InputSelect Digital-'{0}'", inputIndex);
+                        this.LogVerbose("InputSelect Digital-'{0}'", inputIndex);
                         SetInput(inputIndex);
                     });
 
@@ -299,7 +281,7 @@ namespace PepperDashPluginSamsungMdcDisplay
 
                 if (friendlyName != null)
                 {
-                    Debug.Console(DebugLevelDebug, this, "Friendly Name found for input {0}: {1}", i.Key, friendlyName.Name);
+                    this.LogDebug("Friendly Name found for input {0}: {1}", i.Key, friendlyName.Name);
                 }
 
                 var name = friendlyName == null ? i.Key : friendlyName.Name;
@@ -314,7 +296,7 @@ namespace PepperDashPluginSamsungMdcDisplay
             // Input Analog
             trilist.SetUShortSigAction(joinMap.InputSelect.JoinNumber, a =>
             {
-                Debug.Console(DebugLevelVerbose, this, "InputSelect Analog-'{0}'", a);
+                this.LogVerbose("InputSelect Analog-'{0}'", a);
                 SetInput(a);
             });
 
@@ -322,7 +304,7 @@ namespace PepperDashPluginSamsungMdcDisplay
             InputNumberFeedback.LinkInputSig(trilist.UShortInput[joinMap.InputSelect.JoinNumber]);
             InputNumberFeedback.LinkInputSig(trilist.UShortInput[joinMap.InputSelect.JoinNumber]);
             CurrentInputFeedback.OutputChange +=
-                (sender, args) => Debug.Console(DebugLevelDebug, "CurrentInputFeedback: {0}", args.StringValue);
+                (sender, args) => this.LogDebug("CurrentInputFeedback: {0}", args.StringValue);
 
 
             // Volume
@@ -443,7 +425,7 @@ namespace PepperDashPluginSamsungMdcDisplay
                 {
                     // This check is here to prevent
                     // following string format from building unnecessarily on level 0 or 1
-                    Debug.Console(DebugLevelVerbose, this, "Received new bytes:{0}", ComTextHelper.GetEscapedText(newBytes));
+                    this.LogDebug("Received new bytes:{0}", ComTextHelper.GetEscapedText(newBytes));
                 }
 
                 // Get data length
@@ -470,7 +452,7 @@ namespace PepperDashPluginSamsungMdcDisplay
                     if (Debug.Level == 2)
                     {
                         // This check is here to prevent following string format from building unnecessarily on level 0 or 1
-                        Debug.Console(DebugLevelVerbose, this, "Add to buffer:{0}", ComTextHelper.GetEscapedText(_incomingBuffer));
+                        this.LogVerbose("Add to buffer:{0}", ComTextHelper.GetEscapedText(_incomingBuffer));
                     }
                 }
                 else
@@ -481,8 +463,8 @@ namespace PepperDashPluginSamsungMdcDisplay
             }
             catch (Exception ex)
             {
-                Debug.LogError(Debug.ErrorLogLevel.Warning, String.Format("Exception parsing feedback: {0}", ex.Message));
-                Debug.LogError(Debug.ErrorLogLevel.Warning, String.Format("Stack trace: {0}", ex.StackTrace));
+                this.LogError("Exception parsing feedback: {message}", ex.Message);
+                this.LogDebug(ex, "Stack trace: ");
             }
         }
 
@@ -492,11 +474,7 @@ namespace PepperDashPluginSamsungMdcDisplay
             // input ack rx: { 0xAA }{ 0xFF  }{id}{ 0x03  }{'A'/'N'}{ 0x14}{input}{checksum}
             var command = message[5];
 
-            if (Debug.Level == 2)
-            {
-                // This check is here to prevent following string format from building unnecessarily on level 0 or 1
-                Debug.Console(DebugLevelVerbose, this, "Add to buffer:{0}", ComTextHelper.GetEscapedText(_incomingBuffer));
-            }
+            this.LogVerbose("Add to buffer:{0}", ComTextHelper.GetEscapedText(_incomingBuffer));
 
             switch (command)
             {
@@ -518,36 +496,36 @@ namespace PepperDashPluginSamsungMdcDisplay
                         if (Debug.Level == 2)
                         {
                             // This check is here to prevent following string format from building unnecessarily on level 0 or 1
-                            Debug.Console(DebugLevelVerbose, this, "StatusControl Power-'{0}d', Input-'{1}d',  Volume-'{2}d', Mute-'{3}d'",
-                                message[6], message[9], message[7], message[8]);
+                            this.LogVerbose("StatusControl Power-'{0}d', Input-'{1}d',  Volume-'{2}d', Mute-'{3}d'",
+                                 message[6], message[9], message[7], message[8]);
                         }
                         break;
                     }
                 // Power status
                 case SamsungMdcCommands.PowerControl:
                     {
-                        Debug.Console(DebugLevelVerbose, this, "PowerControl-'{0}d'", message[6]);
+                        this.LogVerbose("PowerControl-'{0}d'", message[6]);
                         UpdatePowerFb(message[6]);
                         break;
                     }
                 // Volume level
                 case SamsungMdcCommands.VolumeControl:
                     {
-                        Debug.Console(DebugLevelVerbose, this, "VolumeControl-'{0}d'", message[6]);
+                        this.LogVerbose("VolumeControl-'{0}d'", message[6]);
                         UpdateVolumeFb(message[6]);
                         break;
                     }
                 // Volume mute status
                 case SamsungMdcCommands.MuteControl:
                     {
-                        Debug.Console(DebugLevelVerbose, this, "MuteControl-'{0}d'", message[6]);
+                        this.LogVerbose("MuteControl-'{0}d'", message[6]);
                         UpdateMuteFb(message[6]);
                         break;
                     }
                 // Input status
                 case SamsungMdcCommands.InputSourceControl:
                     {
-                        Debug.Console(DebugLevelVerbose, this, "InputSourceControl-'{0}d'", message[6]);
+                        this.LogVerbose("InputSourceControl-'{0}d'", message[6]);
                         UpdateInputFb(message[6]);
                         break;
                     }
@@ -571,11 +549,11 @@ namespace PepperDashPluginSamsungMdcDisplay
                 // msg[n+1] = val-n+1, moduleN LED error data
                 case SamsungMdcCommands.LedProductFeature:
                     {
-                        Debug.Console(DebugLevelDebug, this, "LedProductFeature SubCmd{0} DataLen{1}", message[6], message[3]);
+                        this.LogVerbose("LedProductFeature SubCmd{0} DataLen{1}", message[6], message[3]);
 
                         if (message[6] == SamsungMdcCommands.LedSubcmdMonitoring)
                         {
-                            Debug.Console(DebugLevelDebug, this, "LedProductFeature SubCmd{0} Temperature{1}", message[6], message[9]);
+                            this.LogVerbose("LedProductFeature SubCmd{0} Temperature{1}", message[6], message[9]);
                             UpdateLedTemperatureFb(message[9]);
                         }
                         break;
@@ -628,7 +606,7 @@ namespace PepperDashPluginSamsungMdcDisplay
                     }
                 default:
                     {
-                        Debug.Console(DebugLevelDebug, this, "Unknown message: {0}", ComTextHelper.GetEscapedText(message));
+                        this.LogVerbose("Unknown message: {0}", ComTextHelper.GetEscapedText(message));
                         break;
                     }
             }
@@ -671,7 +649,7 @@ namespace PepperDashPluginSamsungMdcDisplay
 
             CommunicationMonitor.StatusChange += (sender, args) =>
             {
-                Debug.Console(DebugLevelVerbose, this, "Device status: {0}", CommunicationMonitor.Status);
+                this.LogVerbose("Device status: {0}", CommunicationMonitor.Status);
                 StatusFeedback.FireUpdate();
             };
         }
@@ -768,7 +746,7 @@ namespace PepperDashPluginSamsungMdcDisplay
 
             InputNumberFeedback = new IntFeedback(() =>
             {
-                Debug.Console(DebugLevelVerbose, this, "InputNumberFeedback: CurrentInputNumber-'{0}'", CurrentInputNumber);
+                this.LogVerbose("InputNumberFeedback: CurrentInputNumber-'{0}'", CurrentInputNumber);
                 return CurrentInputNumber;
             });
         }
@@ -777,12 +755,12 @@ namespace PepperDashPluginSamsungMdcDisplay
         {
             CurrentLedTemperatureCelsiusFeedback = new IntFeedback(() =>
             {
-                Debug.Console(DebugLevelVerbose, this, "Current Temperature Celsius {0}", _currentLedTemperatureCelsius);
+                this.LogVerbose("Current Temperature Celsius {0}", _currentLedTemperatureCelsius);
                 return _currentLedTemperatureCelsius;
             });
             CurrentLedTemperatureFahrenheitFeedback = new IntFeedback(() =>
             {
-                Debug.Console(DebugLevelVerbose, this, "Current Temperature Fahrenheit {0}", _currentLedTemperatureFahrenheit);
+                this.LogVerbose("Current Temperature Fahrenheit {0}", _currentLedTemperatureFahrenheit);
                 return _currentLedTemperatureFahrenheit;
             });
         }
@@ -959,8 +937,7 @@ namespace PepperDashPluginSamsungMdcDisplay
         {
             if (_powerIsOn)
             {
-                Action actionToExecute = selector as Action;
-                if (actionToExecute != null)
+                if (selector is Action actionToExecute)
                 {
                     actionToExecute();
                 }
@@ -979,8 +956,7 @@ namespace PepperDashPluginSamsungMdcDisplay
 
                     IsWarmingUpFeedback.OutputChange -= handler;
 
-                    Action actionToExecute = selector as Action;
-                    if (actionToExecute != null)
+                    if (selector is Action actionToExecute)
                     {
                         actionToExecute();
                     }
@@ -991,13 +967,13 @@ namespace PepperDashPluginSamsungMdcDisplay
         }
 
         private void SetupInputs()
-            {
+        {
             if (_config.ActiveInputs != null && _config.ActiveInputs.Count > 0)
-                {
+            {
                 Inputs = new SamsungInputs
-                    {
+                {
                     Items = new Dictionary<byte, ISelectableItem>()
-                    };
+                };
 
                 var activeInputsMap = _config.ActiveInputs.ToDictionary(ai => ai.Key, ai => ai.Name);
 
@@ -1014,17 +990,17 @@ namespace PepperDashPluginSamsungMdcDisplay
         };
 
                 foreach (var activeInput in activeInputsMap)
-                    {
+                {
                     if (allInputs.TryGetValue(activeInput.Key, out var input))
-                        {
+                    {
                         Inputs.Items.Add(input.Key, new SamsungInput(input.Value.Key, activeInput.Value, this, input.Value.Select));
-                        }
                     }
                 }
+            }
             else
-                {
+            {
                 Inputs = new SamsungInputs
-                    {
+                {
                     Items = new Dictionary<byte, ISelectableItem>
             {
                 { SamsungMdcCommands.InputHdmi1, new SamsungInput("hdmi1", "HDMI 1", this, InputHdmi1) },
@@ -1036,9 +1012,9 @@ namespace PepperDashPluginSamsungMdcDisplay
                 { SamsungMdcCommands.InputDvi1, new SamsungInput("dvi1", "DVI 1", this, InputDvi1) },
                 { SamsungMdcCommands.InputMagicInfo, new SamsungInput("magicInfo", "Magic Info", this, InputMagicInfo) }
             }
-                    };
-                }
+                };
             }
+        }
 
 
 
@@ -1140,18 +1116,24 @@ namespace PepperDashPluginSamsungMdcDisplay
         private void UpdateInputFb(byte b)
         {
             var newInput = InputPorts.FirstOrDefault(i => i.FeedbackMatchObject.Equals(b));
+
             if (newInput == null) return;
+
             int inputIndex;
+
             try
             {
                 inputIndex = InputPorts.FindIndex(a => a.FeedbackMatchObject.Equals(b)) + 1;
             }
             catch (Exception e)
             {
-                Debug.Console(0, this, "Unable to match feedback {0} with input.", b);
-                Debug.Console(0, this, "Exception : {0}", e.Message);
+                this.LogError("Unable to match feedback {input} with input. Exception : {message}", b, e.Message);
+                this.LogDebug(e, "Stack trace: ");
                 return;
             }
+
+            CurrentInputPort = newInput;
+
             CurrentInputNumber = inputIndex;
 
             if (Inputs.Items.ContainsKey(b))
@@ -1164,7 +1146,6 @@ namespace PepperDashPluginSamsungMdcDisplay
             }
 
             Inputs.CurrentItem = b;
-
         }
 
 
@@ -1179,11 +1160,12 @@ namespace PepperDashPluginSamsungMdcDisplay
             }
             catch (Exception e)
             {
-                Debug.Console(DebugLevelTrace, this, "Exception Here - {0}", e.Message);
+                this.LogError("Exception updating boolean feedbacks: {message}", e.Message);
+                this.LogDebug(e, "Stack trace: ");
             }
         }
 
-#endregion
+        #endregion
 
 
 
@@ -1375,7 +1357,7 @@ namespace PepperDashPluginSamsungMdcDisplay
 
         private void UpdateMacAddress(byte[] macInfo)
         {
-            DeviceInfo.MacAddress = String.Format("{0X2}:{1X2}:{2X2}:{3X2}:{4X2}:{5X2}", macInfo[0], macInfo[1],
+            DeviceInfo.MacAddress = string.Format("{0X2}:{1X2}:{2X2}:{3X2}:{4X2}:{5X2}", macInfo[0], macInfo[1],
                 macInfo[2], macInfo[3], macInfo[4], macInfo[5]);
 
             OnDeviceInfoChange();
@@ -1387,7 +1369,7 @@ namespace PepperDashPluginSamsungMdcDisplay
 
             Array.Copy(ipAddressInfo, 0, ipAddress, 0, 4);
 
-            DeviceInfo.IpAddress = String.Format("{0}.{1}.{2}.{3}", ipAddress[0], ipAddress[1], ipAddress[2],
+            DeviceInfo.IpAddress = string.Format("{0}.{1}.{2}.{3}", ipAddress[0], ipAddress[1], ipAddress[2],
                 ipAddress[3]);
 
             OnDeviceInfoChange();
@@ -1466,18 +1448,11 @@ namespace PepperDashPluginSamsungMdcDisplay
 
         private double ConvertCelsiusToFahrenheit(double c)
         {
-            var f = ((c * 9) / 5) + 32;
-            Debug.Console(DebugLevelDebug, "ConvertCelsiusToFahrenheit: Fahrenheit = {0}, Celsius = {1}", f, c);
+            var f = (c * 9 / 5) + 32;
+
+            this.LogVerbose("ConvertCelsiusToFahrenheit: Fahrenheit = {0}, Celsius = {1}", f, c);
 
             return f;
-        }
-
-        private double ConvertFahrenheitToCelsius(double f)
-        {
-            var c = (f - 32) * 5 / 9;
-            Debug.Console(DebugLevelDebug, "ConvertFahrenheitToCelsius: Fahrenheit = {0}, Celsius = {1}", f, c);
-
-            return c;
         }
 
         #endregion
@@ -1501,39 +1476,15 @@ namespace PepperDashPluginSamsungMdcDisplay
             //get serial number (0x0B)            
             SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.SerialNumberControl, 0x00, 0x00, 0x00, });
             //get firmware version (0x0E)
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.SwVersionControl, 0x00, 0x00, 0x00  });
+            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.SwVersionControl, 0x00, 0x00, 0x00 });
             //get IP Info (0x1B, 0x82)
             SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.NetworkConfiguration, 0x00, 0x00, 0x00 });
             //get MAC address (0x1B, 0x81)
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.SystemConfigurationMacAddress, 0x00, 0x00, 0x00  });
+            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.SystemConfigurationMacAddress, 0x00, 0x00, 0x00 });
         }
 
         public DeviceInfo DeviceInfo { get; private set; }
         public event DeviceInfoChangeHandler DeviceInfoChanged;
-
-        #endregion
-
-
-
-        #region DebugLevels
-
-        private uint DebugLevelTrace { get; set; }
-        private uint DebugLevelDebug { get; set; }
-        private uint DebugLevelVerbose { get; set; }
-
-        public void ResetDebugLevels()
-        {
-            DebugLevelTrace = 0;
-            DebugLevelDebug = 1;
-            DebugLevelVerbose = 2;
-        }
-
-        public void SetDebugLevels(uint value)
-        {
-            DebugLevelTrace = value;
-            DebugLevelDebug = value;
-            DebugLevelVerbose = value;
-        }
 
         #endregion
     }
