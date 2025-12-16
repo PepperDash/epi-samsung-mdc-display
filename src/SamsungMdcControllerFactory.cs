@@ -5,13 +5,13 @@ using PepperDash.Essentials.Core.Config;
 
 namespace PepperDashPluginSamsungMdcDisplay
 {
-    public class SamsungMdcControllerFactory:EssentialsPluginDeviceFactory<SamsungMdcDisplayController>
+    public class SamsungMdcControllerFactory : EssentialsPluginDeviceFactory<SamsungMdcDisplayController>
     {
         public SamsungMdcControllerFactory()
         {
             MinimumEssentialsFrameworkVersion = "2.4.7";
 
-            TypeNames = new List<string> {"samsungMdcPlugin"};
+            TypeNames = new List<string> { "samsungMdcPlugin" };
         }
 
         #region Overrides of EssentialsDeviceFactory<SamsungMdcDisplayController>
@@ -22,7 +22,7 @@ namespace PepperDashPluginSamsungMdcDisplay
 
             if (comms == null)
             {
-                Debug.Console(0, Debug.ErrorLogLevel.Error, "Unable to create comms for device {0}", dc.Key);
+                Debug.LogError("Unable to create comms for device {0}", dc.Key);
                 return null;
             }
 
@@ -33,7 +33,7 @@ namespace PepperDashPluginSamsungMdcDisplay
                 return new SamsungMdcDisplayController(dc.Key, dc.Name, config, comms);
             }
 
-            Debug.Console(0, Debug.ErrorLogLevel.Error, "Unable to deserialize config for device {0}", dc.Key);
+            Debug.LogError("Unable to deserialize config for device {0}", dc.Key);
             return null;
         }
 
