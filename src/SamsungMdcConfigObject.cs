@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Newtonsoft.Json;
 using PepperDash.Core;
 
@@ -29,6 +29,9 @@ namespace PepperDashPluginSamsungMdcDisplay
 
         [JsonProperty("pollLedTemps")]
         public bool PollLedTemps { get; set; }
+
+        [JsonProperty("supportsUsb")]
+        public bool SupportsUsb { get; set; }
 
         [JsonProperty("friendlyNames")]
         public List<FriendlyName> FriendlyNames { get; set; }

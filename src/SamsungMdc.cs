@@ -724,6 +724,13 @@ namespace PepperDashPluginSamsungMdcDisplay
                         eRoutingSignalType.Audio | eRoutingSignalType.Video,
                         eRoutingPortConnectionType.Streaming, new Action(InputMagicInfo), this),
                     SamsungMdcCommands.InputMagicInfo);
+
+                if (_config.SupportsUsb)
+                {
+                    AddRoutingInputPort(
+                        new RoutingInputPort("usb", eRoutingSignalType.Audio | eRoutingSignalType.Video,
+                            eRoutingPortConnectionType.UsbC, new Action(InputUsb), this), SamsungMdcCommands.InputUsb);
+                }
             }
             else
             {
@@ -1013,6 +1020,11 @@ namespace PepperDashPluginSamsungMdcDisplay
                 { SamsungMdcCommands.InputMagicInfo, new SamsungInput("magicInfo", "Magic Info", this, InputMagicInfo) }
             }
                 };
+
+                if (_config.SupportsUsb)
+                {
+                    Inputs.Items.Add(SamsungMdcCommands.InputUsb, new SamsungInput("usb", "USB", this, InputUsb));
+                }
             }
         }
 
@@ -1089,6 +1101,17 @@ namespace PepperDashPluginSamsungMdcDisplay
         public void InputMagicInfo()
         {
             SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.InputSourceControl, 0x00, 0x01, SamsungMdcCommands.InputMagicInfo, 0x00 });
+        }
+
+        /// <summary>
+        /// Input USB (Cmd: 0x14) pdf page 426
+        /// Set: [HEADER=0xAA][Cmd=0x14][ID][DATA_LEN=0x01][DATA-1=0x1A][CS=0x00]
+        /// Note: USB routing flows through tieLines as data overlay, does not change display input
+        /// </summary>
+        public void InputUsb()
+        {
+            // Do not send command - USB routing via tieLines doesn't change display input
+            // Display stays on current input (e.g., HDMI1) while USB data flows in parallel
         }
 
         /// <summary>

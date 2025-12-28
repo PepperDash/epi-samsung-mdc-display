@@ -1,4 +1,4 @@
-﻿namespace PepperDashPluginSamsungMdcDisplay
+namespace PepperDashPluginSamsungMdcDisplay
 {
     public class SamsungMdcCommands
     {
@@ -108,6 +108,11 @@
         /// 2.1.14 Input source control - BNC1
         /// </summary>
         public const byte InputBnc1 = 0x1E;
+
+        /// <summary>
+        /// 2.1.14 Input source control - USB
+        /// </summary>
+        public const byte InputUsb = 0x19;
 
         /// <summary>
         /// 2.1.14 Input source control - DVI Video1
