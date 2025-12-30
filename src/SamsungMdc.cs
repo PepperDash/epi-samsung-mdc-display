@@ -851,7 +851,7 @@ namespace PepperDashPluginSamsungMdcDisplay
                         "usb",
                         eRoutingSignalType.UsbInput | eRoutingSignalType.UsbOutput,
                         eRoutingPortConnectionType.Streaming,
-                        new Action(() => { }),
+                        null,
                         this
                     ),
                     0x99
@@ -1133,6 +1133,11 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// <param name="selector"></param>
         public override void ExecuteSwitch(object selector)
         {
+            if (selector is null)
+            {
+                return;
+            }
+
             if (_powerIsOn)
             {
                 if (selector is Action actionToExecute)
