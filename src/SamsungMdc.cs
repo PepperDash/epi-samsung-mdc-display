@@ -1,6 +1,12 @@
 ﻿// For Basic SIMPL# Classes
 // For Basic SIMPL#Pro classes
 
+using System;
+using System.Collections.Generic;
+using System.Diagnostics.Metrics;
+using System.Globalization;
+using System.Linq;
+using System.Text;
 using Crestron.SimplSharp;
 using Crestron.SimplSharpPro.DeviceSupport;
 using Newtonsoft.Json;
@@ -10,23 +16,26 @@ using PepperDash.Essentials.Core;
 using PepperDash.Essentials.Core.Bridges;
 using PepperDash.Essentials.Core.DeviceInfo;
 using PepperDash.Essentials.Core.DeviceTypeInterfaces;
-
 using PepperDash.Essentials.Devices.Displays;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics.Metrics;
-using System.Globalization;
-using System.Linq;
-using System.Text;
 using Feedback = PepperDash.Essentials.Core.Feedback;
 using GenericTcpIpClient = PepperDash.Core.GenericTcpIpClient;
 
-
 namespace PepperDashPluginSamsungMdcDisplay
 {
-    public class SamsungMdcDisplayController : PepperDash.Essentials.Devices.Common.Displays.TwoWayDisplayBase, IBasicVolumeWithFeedback, ICommunicationMonitor,
-        IBridgeAdvanced, IDeviceInfoProvider, IInputDisplayPort1, IInputDisplayPort2, IInputHdmi1, IInputHdmi2, IInputHdmi3, IInputHdmi4
-        , IHasInputs<byte>, IRoutingSinkWithSwitchingWithInputPort
+    public class SamsungMdcDisplayController
+        : PepperDash.Essentials.Devices.Common.Displays.TwoWayDisplayBase,
+            IBasicVolumeWithFeedback,
+            ICommunicationMonitor,
+            IBridgeAdvanced,
+            IDeviceInfoProvider,
+            IInputDisplayPort1,
+            IInputDisplayPort2,
+            IInputHdmi1,
+            IInputHdmi2,
+            IInputHdmi3,
+            IInputHdmi4,
+            IHasInputs<byte>,
+            IRoutingSinkWithCurrentSources
     {
         public StatusMonitorBase CommunicationMonitor { get; private set; }
         public IBasicCommunication Communication { get; private set; }
@@ -63,12 +72,10 @@ namespace PepperDashPluginSamsungMdcDisplay
             get { return () => _isWarmingUp; }
         }
 
-
         public static List<string> InputKeys = new List<string>();
 
         public List<BoolFeedback> InputFeedback;
         public IntFeedback InputNumberFeedback;
-
 
         protected override Func<string> CurrentInputFeedbackFunc
         {
@@ -78,14 +85,14 @@ namespace PepperDashPluginSamsungMdcDisplay
         private int _currentInputNumber;
         public int CurrentInputNumber
         {
-            get
-            {
-                return _currentInputNumber;
-            }
+            get { return _currentInputNumber; }
             private set
             {
                 _currentInputNumber = value;
-                this.LogDebug("CurrentInputNumber: _currentInputNumber-'{currentInput}'", _currentInputNumber);
+                this.LogDebug(
+                    "CurrentInputNumber: _currentInputNumber-'{currentInput}'",
+                    _currentInputNumber
+                );
 
                 CurrentInputFeedback.FireUpdate();
                 InputNumberFeedback.FireUpdate();
@@ -97,11 +104,10 @@ namespace PepperDashPluginSamsungMdcDisplay
 
         public void SetInput(int value)
         {
-            if (value <= 0 || value >= InputPorts.Count) return;
+            if (value <= 0 || value >= InputPorts.Count)
+                return;
 
-            this.LogDebug("SetInput: value-'{0}'", value);
-
-            // -1 to get actual input after'0d' check                
+            // -1 to get actual input after'0d' check
             var port = GetInputPort(value - 1);
             if (port == null)
             {
@@ -109,14 +115,17 @@ namespace PepperDashPluginSamsungMdcDisplay
                 return;
             }
 
-            this.LogDebug("SetInput: port.Key-'{0}', port.Selector-'{1}', port.ConnectionType-'{2}', port.FeedbackMatchObject-'{3}'",
-                port.Key, port.Selector, port.ConnectionType, port.FeedbackMatchObject);
+            this.LogDebug(
+                "SetInput: port.Key-'{0}', port.Selector-'{1}', port.ConnectionType-'{2}', port.FeedbackMatchObject-'{3}'",
+                port.Key,
+                port.Selector,
+                port.ConnectionType,
+                port.FeedbackMatchObject
+            );
 
             ExecuteSwitch(port.Selector);
             UpdateInputFb((byte)port.FeedbackMatchObject);
         }
-
-
 
         private RoutingInputPort GetInputPort(int input)
         {
@@ -164,7 +173,6 @@ namespace PepperDashPluginSamsungMdcDisplay
             }
         }
 
-
         /// <summary>
         /// Constructor for IBaseCommunication
         /// </summary>
@@ -172,8 +180,12 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// <param name="config"></param>
         /// <param name="key"></param>
         /// <param name="comms"></param>
-        public SamsungMdcDisplayController(string key, string name, SamsungMdcDisplayPropertiesConfig config,
-            IBasicCommunication comms)
+        public SamsungMdcDisplayController(
+            string key,
+            string name,
+            SamsungMdcDisplayPropertiesConfig config,
+            IBasicCommunication comms
+        )
             : base(key, name)
         {
             Communication = comms;
@@ -209,19 +221,19 @@ namespace PepperDashPluginSamsungMdcDisplay
             get
             {
                 var list = base.Feedbacks;
-                list.AddRange(new List<Feedback>
-                {
-                    VolumeLevelFeedback,
-                    MuteFeedback,
-                    CurrentInputFeedback,
-                    CurrentLedTemperatureCelsiusFeedback,
-                    CurrentLedTemperatureFahrenheitFeedback
-                });
+                list.AddRange(
+                    new List<Feedback>
+                    {
+                        VolumeLevelFeedback,
+                        MuteFeedback,
+                        CurrentInputFeedback,
+                        CurrentLedTemperatureCelsiusFeedback,
+                        CurrentLedTemperatureFahrenheitFeedback,
+                    }
+                );
                 return list;
             }
         }
-
-
 
         #region IBridgeAdvanced Members
 
@@ -232,7 +244,12 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// <param name="joinStart"></param>
         /// <param name="joinMapKey"></param>
         /// <param name="bridge"></param>
-        public void LinkToApi(BasicTriList trilist, uint joinStart, string joinMapKey, EiscApiAdvanced bridge)
+        public void LinkToApi(
+            BasicTriList trilist,
+            uint joinStart,
+            string joinMapKey,
+            EiscApiAdvanced bridge
+        )
         {
             var joinMap = new SamsungDisplayControllerJoinMap(joinStart);
 
@@ -243,7 +260,9 @@ namespace PepperDashPluginSamsungMdcDisplay
 
             if (!string.IsNullOrEmpty(joinMapSerialized))
             {
-                joinMap = JsonConvert.DeserializeObject<SamsungDisplayControllerJoinMap>(joinMapSerialized);
+                joinMap = JsonConvert.DeserializeObject<SamsungDisplayControllerJoinMap>(
+                    joinMapSerialized
+                );
             }
 
             this.LogDebug("Linking to Trilist '{0}'", trilist.ID.ToString("X"));
@@ -252,18 +271,20 @@ namespace PepperDashPluginSamsungMdcDisplay
             //trilist.StringInput[joinMap.Name.JoinNumber].StringValue = Name;
             trilist.SetString(joinMap.Name.JoinNumber, Name);
 
-            CommunicationMonitor.IsOnlineFeedback.LinkInputSig(trilist.BooleanInput[joinMap.IsOnline.JoinNumber]);
+            CommunicationMonitor.IsOnlineFeedback.LinkInputSig(
+                trilist.BooleanInput[joinMap.IsOnline.JoinNumber]
+            );
             StatusFeedback.LinkInputSig(trilist.UShortInput[joinMap.Status.JoinNumber]);
-
 
             // Power Off
             trilist.SetSigTrueAction(joinMap.PowerOff.JoinNumber, PowerOff);
-            PowerIsOnFeedback.LinkComplementInputSig(trilist.BooleanInput[joinMap.PowerOff.JoinNumber]);
+            PowerIsOnFeedback.LinkComplementInputSig(
+                trilist.BooleanInput[joinMap.PowerOff.JoinNumber]
+            );
 
             // Power On
             trilist.SetSigTrueAction(joinMap.PowerOn.JoinNumber, PowerOn);
             PowerIsOnFeedback.LinkInputSig(trilist.BooleanInput[joinMap.PowerOn.JoinNumber]);
-
 
             // Input digitals
             var count = 0;
@@ -271,41 +292,54 @@ namespace PepperDashPluginSamsungMdcDisplay
             {
                 var i = input;
                 var inputIndex = count + 1;
-                trilist.SetSigTrueAction((ushort)(joinMap.InputSelectOffset.JoinNumber + count), () =>
+                trilist.SetSigTrueAction(
+                    (ushort)(joinMap.InputSelectOffset.JoinNumber + count),
+                    () =>
                     {
                         this.LogVerbose("InputSelect Digital-'{0}'", inputIndex);
                         SetInput(inputIndex);
-                    });
+                    }
+                );
 
                 var friendlyName = _config.FriendlyNames.FirstOrDefault(n => n.InputKey == i.Key);
 
                 if (friendlyName != null)
                 {
-                    this.LogDebug("Friendly Name found for input {0}: {1}", i.Key, friendlyName.Name);
+                    this.LogDebug(
+                        "Friendly Name found for input {0}: {1}",
+                        i.Key,
+                        friendlyName.Name
+                    );
                 }
 
                 var name = friendlyName == null ? i.Key : friendlyName.Name;
 
-                trilist.StringInput[(ushort)(joinMap.InputNamesOffset.JoinNumber + count)].StringValue = name;
+                trilist
+                    .StringInput[(ushort)(joinMap.InputNamesOffset.JoinNumber + count)]
+                    .StringValue = name;
 
-                InputFeedback[count].LinkInputSig(
-                    trilist.BooleanInput[joinMap.InputSelectOffset.JoinNumber + (uint)count]);
+                InputFeedback[count]
+                    .LinkInputSig(
+                        trilist.BooleanInput[joinMap.InputSelectOffset.JoinNumber + (uint)count]
+                    );
                 count++;
             }
 
             // Input Analog
-            trilist.SetUShortSigAction(joinMap.InputSelect.JoinNumber, a =>
-            {
-                this.LogVerbose("InputSelect Analog-'{0}'", a);
-                SetInput(a);
-            });
+            trilist.SetUShortSigAction(
+                joinMap.InputSelect.JoinNumber,
+                a =>
+                {
+                    this.LogVerbose("InputSelect Analog-'{0}'", a);
+                    SetInput(a);
+                }
+            );
 
             // input analog feedback
             InputNumberFeedback.LinkInputSig(trilist.UShortInput[joinMap.InputSelect.JoinNumber]);
             InputNumberFeedback.LinkInputSig(trilist.UShortInput[joinMap.InputSelect.JoinNumber]);
-            CurrentInputFeedback.OutputChange +=
-                (sender, args) => this.LogDebug("CurrentInputFeedback: {0}", args.StringValue);
-
+            CurrentInputFeedback.OutputChange += (sender, args) =>
+                this.LogDebug("CurrentInputFeedback: {0}", args.StringValue);
 
             // Volume
             trilist.SetBoolSigAction(joinMap.VolumeUp.JoinNumber, VolumeUp);
@@ -317,22 +351,27 @@ namespace PepperDashPluginSamsungMdcDisplay
             VolumeLevelFeedback.LinkInputSig(trilist.UShortInput[joinMap.VolumeLevel.JoinNumber]);
             MuteFeedback.LinkInputSig(trilist.BooleanInput[joinMap.VolumeMuteOn.JoinNumber]);
             MuteFeedback.LinkInputSig(trilist.BooleanInput[joinMap.VolumeMute.JoinNumber]);
-            MuteFeedback.LinkComplementInputSig(trilist.BooleanInput[joinMap.VolumeMuteOff.JoinNumber]);
+            MuteFeedback.LinkComplementInputSig(
+                trilist.BooleanInput[joinMap.VolumeMuteOff.JoinNumber]
+            );
 
             // Show Volume Controls
             trilist.SetBool(joinMap.VolumeControlsVisibleFb.JoinNumber, _showVolumeControls);
 
-            // LED temperature analog feedback 
+            // LED temperature analog feedback
             CurrentLedTemperatureCelsiusFeedback.LinkInputSig(
-                trilist.UShortInput[joinMap.LedTemperatureCelsius.JoinNumber]);
+                trilist.UShortInput[joinMap.LedTemperatureCelsius.JoinNumber]
+            );
 
             CurrentLedTemperatureCelsiusFeedback.LinkInputSig(
-                trilist.UShortInput[joinMap.LedTemperatureCelsius.JoinNumber]);
+                trilist.UShortInput[joinMap.LedTemperatureCelsius.JoinNumber]
+            );
 
             // bridge online change
             trilist.OnlineStatusChange += (sender, args) =>
             {
-                if (!args.DeviceOnLine) return;
+                if (!args.DeviceOnLine)
+                    return;
 
                 trilist.SetString(joinMap.Name.JoinNumber, Name);
 
@@ -342,7 +381,6 @@ namespace PepperDashPluginSamsungMdcDisplay
                 for (var port = 0; port < InputPorts.Count; port++)
                 {
                     InputFeedback[port].FireUpdate();
-
                 }
 
                 InputNumberFeedback.FireUpdate();
@@ -366,21 +404,21 @@ namespace PepperDashPluginSamsungMdcDisplay
         }
 
         /// <summary>
-        /// Formats an outgoing message. 
+        /// Formats an outgoing message.
         /// Third byte will be replaced with ID and last byte will be replaced with calculated checksum.
-        /// All bytes to make a valid message must be included and can be represented with 0x00. 
+        /// All bytes to make a valid message must be included and can be represented with 0x00.
         /// Get ex. [HEADER][CMD][ID][DATA_LEN][CS]
         /// Set ex. [HEADER][CMD][ID][DATA_LEN][DATA-1...DATA-N][CS]
         /// </summary>
         /// <param name="b">byte array</param>
         private void SendBytes(byte[] b)
         {
-            // Command structure 
+            // Command structure
             // [HEADER][CMD][ID][DATA_LEN][DATA-1]....[DATA-N][CHK_SUM]
             // PowerOn ex: 0xAA,0x11,0x01,0x01,0x01,0x01
             if (_lastCommandSentWasVolume) // If the last command sent was volume
             {
-                if (b[1] != 0x12) // Check if this command is volume, and if not, delay this command 
+                if (b[1] != 0x12) // Check if this command is volume, and if not, delay this command
                 {
                     CrestronEnvironment.Sleep(100);
                 }
@@ -401,9 +439,8 @@ namespace PepperDashPluginSamsungMdcDisplay
             Communication.SendBytes(b);
         }
 
-
         /// <summary>
-        /// Communication bytes recieved
+        /// Communication bytes received
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e">Event args</param>
@@ -431,7 +468,7 @@ namespace PepperDashPluginSamsungMdcDisplay
                 // Get data length
                 if (newBytes.Length >= 6)
                 {
-                    // check for header 
+                    // check for header
 
                     // header + length + checksum
                     var dataLength = 5 + newBytes[3];
@@ -452,7 +489,10 @@ namespace PepperDashPluginSamsungMdcDisplay
                     if (Debug.Level == 2)
                     {
                         // This check is here to prevent following string format from building unnecessarily on level 0 or 1
-                        this.LogVerbose("Add to buffer:{0}", ComTextHelper.GetEscapedText(_incomingBuffer));
+                        this.LogVerbose(
+                            "Add to buffer:{0}",
+                            ComTextHelper.GetEscapedText(_incomingBuffer)
+                        );
                     }
                 }
                 else
@@ -480,56 +520,61 @@ namespace PepperDashPluginSamsungMdcDisplay
             {
                 // General status
                 case SamsungMdcCommands.StatusControl:
+                {
+                    //UpdatePowerFB(message[2], message[5]); // "power" can be misrepresented when the display sleeps
+                    // Handle the first power on fb when waiting for it.
+                    if (_isPoweringOnIgnorePowerFb && message[6] == SamsungMdcCommands.PowerOn)
                     {
-                        //UpdatePowerFB(message[2], message[5]); // "power" can be misrepresented when the display sleeps
-                        // Handle the first power on fb when waiting for it.
-                        if (_isPoweringOnIgnorePowerFb && message[6] == SamsungMdcCommands.PowerOn)
-                        {
-                            _isPoweringOnIgnorePowerFb = false;
-                        }
-                        // Ignore general-status power off messages when powering up
-                        // if (!(_isPoweringOnIgnorePowerFb && message[6] == PowerOff))
-                        UpdatePowerFb(message[6]);
-                        UpdateVolumeFb(message[7]);
-                        UpdateMuteFb(message[8]);
-                        UpdateInputFb(message[9]);
-                        if (Debug.Level == 2)
-                        {
-                            // This check is here to prevent following string format from building unnecessarily on level 0 or 1
-                            this.LogVerbose("StatusControl Power-'{0}d', Input-'{1}d',  Volume-'{2}d', Mute-'{3}d'",
-                                 message[6], message[9], message[7], message[8]);
-                        }
-                        break;
+                        _isPoweringOnIgnorePowerFb = false;
                     }
+                    // Ignore general-status power off messages when powering up
+                    // if (!(_isPoweringOnIgnorePowerFb && message[6] == PowerOff))
+                    UpdatePowerFb(message[6]);
+                    UpdateVolumeFb(message[7]);
+                    UpdateMuteFb(message[8]);
+                    UpdateInputFb(message[9]);
+                    if (Debug.Level == 2)
+                    {
+                        // This check is here to prevent following string format from building unnecessarily on level 0 or 1
+                        this.LogVerbose(
+                            "StatusControl Power-'{0}d', Input-'{1}d',  Volume-'{2}d', Mute-'{3}d'",
+                            message[6],
+                            message[9],
+                            message[7],
+                            message[8]
+                        );
+                    }
+                    break;
+                }
                 // Power status
                 case SamsungMdcCommands.PowerControl:
-                    {
-                        this.LogVerbose("PowerControl-'{0}d'", message[6]);
-                        UpdatePowerFb(message[6]);
-                        break;
-                    }
+                {
+                    this.LogVerbose("PowerControl-'{0}d'", message[6]);
+                    UpdatePowerFb(message[6]);
+                    break;
+                }
                 // Volume level
                 case SamsungMdcCommands.VolumeControl:
-                    {
-                        this.LogVerbose("VolumeControl-'{0}d'", message[6]);
-                        UpdateVolumeFb(message[6]);
-                        break;
-                    }
+                {
+                    this.LogVerbose("VolumeControl-'{0}d'", message[6]);
+                    UpdateVolumeFb(message[6]);
+                    break;
+                }
                 // Volume mute status
                 case SamsungMdcCommands.MuteControl:
-                    {
-                        this.LogVerbose("MuteControl-'{0}d'", message[6]);
-                        UpdateMuteFb(message[6]);
-                        break;
-                    }
+                {
+                    this.LogVerbose("MuteControl-'{0}d'", message[6]);
+                    UpdateMuteFb(message[6]);
+                    break;
+                }
                 // Input status
                 case SamsungMdcCommands.InputSourceControl:
-                    {
-                        this.LogVerbose("InputSourceControl-'{0}d'", message[6]);
-                        UpdateInputFb(message[6]);
-                        break;
-                    }
-                // Monitoring (Sub CMD 0x84, 2.1.D0.84 Monitoring, pdf page 228 or 244)       
+                {
+                    this.LogVerbose("InputSourceControl-'{0}d'", message[6]);
+                    UpdateInputFb(message[6]);
+                    break;
+                }
+                // Monitoring (Sub CMD 0x84, 2.1.D0.84 Monitoring, pdf page 228 or 244)
                 // msg[0] = Header, 0xAA
                 // msg[1] = Command, 0xFF
                 // msg[2] = ID
@@ -548,75 +593,82 @@ namespace PepperDashPluginSamsungMdcDisplay
                 // msg[n] = val-n, moduleN
                 // msg[n+1] = val-n+1, moduleN LED error data
                 case SamsungMdcCommands.LedProductFeature:
-                    {
-                        this.LogVerbose("LedProductFeature SubCmd{0} DataLen{1}", message[6], message[3]);
+                {
+                    this.LogVerbose(
+                        "LedProductFeature SubCmd{0} DataLen{1}",
+                        message[6],
+                        message[3]
+                    );
 
-                        if (message[6] == SamsungMdcCommands.LedSubcmdMonitoring)
-                        {
-                            this.LogVerbose("LedProductFeature SubCmd{0} Temperature{1}", message[6], message[9]);
-                            UpdateLedTemperatureFb(message[9]);
-                        }
-                        break;
+                    if (message[6] == SamsungMdcCommands.LedSubcmdMonitoring)
+                    {
+                        this.LogVerbose(
+                            "LedProductFeature SubCmd{0} Temperature{1}",
+                            message[6],
+                            message[9]
+                        );
+                        UpdateLedTemperatureFb(message[9]);
                     }
+                    break;
+                }
                 // Serial number control
                 case SamsungMdcCommands.SerialNumberControl:
-                    {
-                        var serialNumber = new byte[18];
-                        Array.Copy(message, 6, serialNumber, 0, 18);
+                {
+                    var serialNumber = new byte[18];
+                    Array.Copy(message, 6, serialNumber, 0, 18);
 
-                        UpdateSerialNumber(serialNumber);
-                        break;
-                    }
+                    UpdateSerialNumber(serialNumber);
+                    break;
+                }
                 // Software version control
                 case SamsungMdcCommands.SwVersionControl:
-                    {
-                        var length = message[3];
+                {
+                    var length = message[3];
 
-                        var firmware = new byte[length];
+                    var firmware = new byte[length];
 
-                        Array.Copy(message, 6, firmware, 0, length);
+                    Array.Copy(message, 6, firmware, 0, length);
 
-                        UpdateFirmwareVersion(firmware);
-                        break;
-                    }
+                    UpdateFirmwareVersion(firmware);
+                    break;
+                }
                 // Network info
                 case SamsungMdcCommands.SystemConfiguration:
+                {
+                    var length = message[3];
+                    if (message[4] == SamsungMdcCommands.NetworkConfiguration)
                     {
-                        var length = message[3];
-                        if (message[4] == SamsungMdcCommands.NetworkConfiguration)
-                        {
-                            var ipAddressInfo = new byte[length - 1];
+                        var ipAddressInfo = new byte[length - 1];
 
-                            Array.Copy(message, 7, ipAddressInfo, 0, length - 1);
+                        Array.Copy(message, 7, ipAddressInfo, 0, length - 1);
 
-                            UpdateNetworkInfo(ipAddressInfo);
-                            break;
-                        }
-
-                        if (message[4] == SamsungMdcCommands.SystemConfigurationMacAddress)
-                        {
-                            var macInfo = new byte[length - 1];
-
-                            Array.Copy(message, 6, macInfo, 0, length - 1);
-
-                            UpdateMacAddress(macInfo);
-                        }
-
+                        UpdateNetworkInfo(ipAddressInfo);
                         break;
                     }
+
+                    if (message[4] == SamsungMdcCommands.SystemConfigurationMacAddress)
+                    {
+                        var macInfo = new byte[length - 1];
+
+                        Array.Copy(message, 6, macInfo, 0, length - 1);
+
+                        UpdateMacAddress(macInfo);
+                    }
+
+                    break;
+                }
                 default:
-                    {
-                        this.LogVerbose("Unknown message: {0}", ComTextHelper.GetEscapedText(message));
-                        break;
-                    }
+                {
+                    this.LogVerbose("Unknown message: {0}", ComTextHelper.GetEscapedText(message));
+                    break;
+                }
             }
         }
-
 
         #region Inits
 
         /// <summary>
-        /// Initialize 
+        /// Initialize
         /// </summary>
         private void Init()
         {
@@ -640,8 +692,15 @@ namespace PepperDashPluginSamsungMdcDisplay
         {
             var pollInterval = _pollIntervalMs > 0 ? _pollIntervalMs : 30000;
 
-            CommunicationMonitor = new GenericCommunicationMonitor(this, Communication, pollInterval, 180000, 300000,
-                StatusGet, true);
+            CommunicationMonitor = new GenericCommunicationMonitor(
+                this,
+                Communication,
+                pollInterval,
+                180000,
+                300000,
+                StatusGet,
+                true
+            );
 
             DeviceManager.AddDevice(CommunicationMonitor);
 
@@ -663,18 +722,30 @@ namespace PepperDashPluginSamsungMdcDisplay
 
             if (!ScaleVolume)
             {
-                _volumeIncrementer = new ActionIncrementer(655, 0, 65535, 800, 80,
+                _volumeIncrementer = new ActionIncrementer(
+                    655,
+                    0,
+                    65535,
+                    800,
+                    80,
                     v => SetVolume((ushort)v),
-                    () => _lastVolumeSent);
+                    () => _lastVolumeSent
+                );
             }
             else
             {
                 var scaleUpper = NumericalHelpers.Scale(_upperLimit, 0, 100, 0, 65535);
                 var scaleLower = NumericalHelpers.Scale(_lowerLimit, 0, 100, 0, 65535);
 
-                _volumeIncrementer = new ActionIncrementer(655, (int)scaleLower, (int)scaleUpper, 800, 80,
+                _volumeIncrementer = new ActionIncrementer(
+                    655,
+                    (int)scaleLower,
+                    (int)scaleUpper,
+                    800,
+                    80,
                     v => SetVolume((ushort)v),
-                    () => _lastVolumeSent);
+                    () => _lastVolumeSent
+                );
             }
 
             VolumeLevelFeedback = new IntFeedback(() => _volumeLevelForSig);
@@ -688,42 +759,103 @@ namespace PepperDashPluginSamsungMdcDisplay
             if (_customInputs.Count == 0)
             {
                 AddRoutingInputPort(
-                    new RoutingInputPort(RoutingPortNames.HdmiIn1, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                        eRoutingPortConnectionType.Hdmi, new Action(InputHdmi1), this), SamsungMdcCommands.InputHdmi1);
-
-                AddRoutingInputPort(
-                    new RoutingInputPort(RoutingPortNames.HdmiIn2, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                        eRoutingPortConnectionType.Hdmi, new Action(InputHdmi2), this), SamsungMdcCommands.InputHdmi2);
-
-                AddRoutingInputPort(
-                    new RoutingInputPort(RoutingPortNames.HdmiIn3, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                        eRoutingPortConnectionType.Hdmi, new Action(InputHdmi3), this), SamsungMdcCommands.InputHdmi3);
-
-                AddRoutingInputPort(
-                    new RoutingInputPort(RoutingPortNames.HdmiIn4, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                        eRoutingPortConnectionType.Hdmi, new Action(InputHdmi4), this), SamsungMdcCommands.InputHdmi4);
-
-                AddRoutingInputPort(
-                    new RoutingInputPort(RoutingPortNames.DisplayPortIn1,
+                    new RoutingInputPort(
+                        RoutingPortNames.HdmiIn1,
                         eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                        eRoutingPortConnectionType.DisplayPort, new Action(InputDisplayPort1), this),
-                    SamsungMdcCommands.InputDisplayPort1);
+                        eRoutingPortConnectionType.Hdmi,
+                        new Action(InputHdmi1),
+                        this
+                    ),
+                    SamsungMdcCommands.InputHdmi1
+                );
 
                 AddRoutingInputPort(
-                    new RoutingInputPort(RoutingPortNames.DisplayPortIn2,
+                    new RoutingInputPort(
+                        RoutingPortNames.HdmiIn2,
                         eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                        eRoutingPortConnectionType.DisplayPort, new Action(InputDisplayPort2), this),
-                    SamsungMdcCommands.InputDisplayPort2);
+                        eRoutingPortConnectionType.Hdmi,
+                        new Action(InputHdmi2),
+                        this
+                    ),
+                    SamsungMdcCommands.InputHdmi2
+                );
 
                 AddRoutingInputPort(
-                    new RoutingInputPort(RoutingPortNames.DviIn, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                        eRoutingPortConnectionType.Dvi, new Action(InputDvi1), this), SamsungMdcCommands.InputDvi1);
-
-                AddRoutingInputPort(
-                    new RoutingInputPort(RoutingPortNames.MediaPlayer,
+                    new RoutingInputPort(
+                        RoutingPortNames.HdmiIn3,
                         eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                        eRoutingPortConnectionType.Streaming, new Action(InputMagicInfo), this),
-                    SamsungMdcCommands.InputMagicInfo);
+                        eRoutingPortConnectionType.Hdmi,
+                        new Action(InputHdmi3),
+                        this
+                    ),
+                    SamsungMdcCommands.InputHdmi3
+                );
+
+                AddRoutingInputPort(
+                    new RoutingInputPort(
+                        RoutingPortNames.HdmiIn4,
+                        eRoutingSignalType.Audio | eRoutingSignalType.Video,
+                        eRoutingPortConnectionType.Hdmi,
+                        new Action(InputHdmi4),
+                        this
+                    ),
+                    SamsungMdcCommands.InputHdmi4
+                );
+
+                AddRoutingInputPort(
+                    new RoutingInputPort(
+                        RoutingPortNames.DisplayPortIn1,
+                        eRoutingSignalType.Audio | eRoutingSignalType.Video,
+                        eRoutingPortConnectionType.DisplayPort,
+                        new Action(InputDisplayPort1),
+                        this
+                    ),
+                    SamsungMdcCommands.InputDisplayPort1
+                );
+
+                AddRoutingInputPort(
+                    new RoutingInputPort(
+                        RoutingPortNames.DisplayPortIn2,
+                        eRoutingSignalType.Audio | eRoutingSignalType.Video,
+                        eRoutingPortConnectionType.DisplayPort,
+                        new Action(InputDisplayPort2),
+                        this
+                    ),
+                    SamsungMdcCommands.InputDisplayPort2
+                );
+
+                AddRoutingInputPort(
+                    new RoutingInputPort(
+                        RoutingPortNames.DviIn,
+                        eRoutingSignalType.Audio | eRoutingSignalType.Video,
+                        eRoutingPortConnectionType.Dvi,
+                        new Action(InputDvi1),
+                        this
+                    ),
+                    SamsungMdcCommands.InputDvi1
+                );
+
+                AddRoutingInputPort(
+                    new RoutingInputPort(
+                        RoutingPortNames.MediaPlayer,
+                        eRoutingSignalType.Audio | eRoutingSignalType.Video,
+                        eRoutingPortConnectionType.Streaming,
+                        new Action(InputMagicInfo),
+                        this
+                    ),
+                    SamsungMdcCommands.InputMagicInfo
+                );
+
+                AddRoutingInputPort(
+                    new RoutingInputPort(
+                        "usb",
+                        eRoutingSignalType.UsbInput | eRoutingSignalType.UsbOutput,
+                        eRoutingPortConnectionType.Streaming,
+                        null,
+                        this
+                    ),
+                    0x99
+                );
             }
             else
             {
@@ -732,9 +864,21 @@ namespace PepperDashPluginSamsungMdcDisplay
                     var input = customInput;
                     var commandHex = ConvertStringToHex(input.InputCommand);
 
-                    AddRoutingInputPort(new RoutingInputPort(input.InputIdentifier, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                        (eRoutingPortConnectionType)Enum.Parse(typeof(eRoutingPortConnectionType), input.InputConnector, true),
-                        new Action(() => InputGeneric(commandHex)), this), commandHex);
+                    AddRoutingInputPort(
+                        new RoutingInputPort(
+                            input.InputIdentifier,
+                            eRoutingSignalType.Audio | eRoutingSignalType.Video,
+                            (eRoutingPortConnectionType)
+                                Enum.Parse(
+                                    typeof(eRoutingPortConnectionType),
+                                    input.InputConnector,
+                                    true
+                                ),
+                            new Action(() => InputGeneric(commandHex)),
+                            this
+                        ),
+                        commandHex
+                    );
                 }
             }
 
@@ -746,7 +890,10 @@ namespace PepperDashPluginSamsungMdcDisplay
 
             InputNumberFeedback = new IntFeedback(() =>
             {
-                this.LogVerbose("InputNumberFeedback: CurrentInputNumber-'{0}'", CurrentInputNumber);
+                this.LogVerbose(
+                    "InputNumberFeedback: CurrentInputNumber-'{0}'",
+                    CurrentInputNumber
+                );
                 return CurrentInputNumber;
             });
         }
@@ -760,13 +907,15 @@ namespace PepperDashPluginSamsungMdcDisplay
             });
             CurrentLedTemperatureFahrenheitFeedback = new IntFeedback(() =>
             {
-                this.LogVerbose("Current Temperature Fahrenheit {0}", _currentLedTemperatureFahrenheit);
+                this.LogVerbose(
+                    "Current Temperature Fahrenheit {0}",
+                    _currentLedTemperatureFahrenheit
+                );
                 return _currentLedTemperatureFahrenheit;
             });
         }
 
         #endregion
-
 
 
         /// <summary>
@@ -775,22 +924,39 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// </summary>
         public void StatusGet()
         {
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.StatusControl, 0x00, 0x00, 0x00 });
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.StatusControl,
+                    0x00,
+                    0x00,
+                    0x00,
+                }
+            );
 
             //_pollRing = null;
             //PollRing = new CTimer(o => VolumeGet(), null, 1000);
             //_pollRing = new CTimer(o => LedProductMonitorGet(), null, 10000);
 
             if (_pollLedTemps)
-                SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.LedProductFeature, 0x00, 0x01, SamsungMdcCommands.LedSubcmdMonitoring, 0x00 });
+                SendBytes(
+                    new byte[]
+                    {
+                        SamsungMdcCommands.Header,
+                        SamsungMdcCommands.LedProductFeature,
+                        0x00,
+                        0x01,
+                        SamsungMdcCommands.LedSubcmdMonitoring,
+                        0x00,
+                    }
+                );
         }
-
-
 
         #region Power
 
         /// <summary>
-        /// Power on (Cmd: 0x11) pdf page 42 
+        /// Power on (Cmd: 0x11) pdf page 42
         /// Set: [HEADER=0xAA][Cmd=0x11][ID][DATA_LEN=0x01][DATA-1=0x01][CS=0x00]
         /// </summary>
         public override void PowerOn()
@@ -804,8 +970,17 @@ namespace PepperDashPluginSamsungMdcDisplay
 
             _powerIsOn = true;
 
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.PowerControl, 0x00, 0x01, SamsungMdcCommands.PowerOn, 0x00 });
-
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.PowerControl,
+                    0x00,
+                    0x01,
+                    SamsungMdcCommands.PowerOn,
+                    0x00,
+                }
+            );
 
             if (WarmupTimer != null || WarmupTime == 0)
             {
@@ -817,17 +992,20 @@ namespace PepperDashPluginSamsungMdcDisplay
             IsWarmingUpFeedback.FireUpdate();
 
             // Fake power-up cycle
-            WarmupTimer = new CTimer(o =>
-            {
-                _isWarmingUp = false;
+            WarmupTimer = new CTimer(
+                o =>
+                {
+                    _isWarmingUp = false;
 
-                IsWarmingUpFeedback.FireUpdate();
-                PowerIsOnFeedback.FireUpdate();
-            }, WarmupTime);
+                    IsWarmingUpFeedback.FireUpdate();
+                    PowerIsOnFeedback.FireUpdate();
+                },
+                WarmupTime
+            );
         }
 
         /// <summary>
-        /// Power off (Cmd: 0x11) pdf page 42 
+        /// Power off (Cmd: 0x11) pdf page 42
         /// Set: [HEADER=0xAA][Cmd=0x11][ID][DATA_LEN=0x01][DATA-1=0x00][CS=0x00]
         /// </summary>
         public override void PowerOff()
@@ -842,7 +1020,17 @@ namespace PepperDashPluginSamsungMdcDisplay
 
             _powerIsOn = false;
 
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.PowerControl, 0x00, 0x01, SamsungMdcCommands.PowerOff, 0x00 });
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.PowerControl,
+                    0x00,
+                    0x01,
+                    SamsungMdcCommands.PowerOff,
+                    0x00,
+                }
+            );
 
             CurrentInputNumber = 0;
 
@@ -859,17 +1047,19 @@ namespace PepperDashPluginSamsungMdcDisplay
             IsCoolingDownFeedback.FireUpdate();
 
             // Fake cool-down cycle
-            CooldownTimer = new CTimer(o =>
-            {
-                _isCoolingDown = false;
-                PowerIsOnFeedback.FireUpdate();
-                IsCoolingDownFeedback.FireUpdate();
-            }, CooldownTime);
-
+            CooldownTimer = new CTimer(
+                o =>
+                {
+                    _isCoolingDown = false;
+                    PowerIsOnFeedback.FireUpdate();
+                    IsCoolingDownFeedback.FireUpdate();
+                },
+                CooldownTime
+            );
         }
 
-        /// <summary>		
-        /// Power toggle (Cmd: 0x11) pdf page 42 
+        /// <summary>
+        /// Power toggle (Cmd: 0x11) pdf page 42
         /// Set: [HEADER=0xAA][Cmd=0x11][ID][DATA_LEN=0x01][DATA-1=0x01||0x00][CS=0x00]
         /// </summary>
         public override void PowerToggle()
@@ -885,13 +1075,22 @@ namespace PepperDashPluginSamsungMdcDisplay
         }
 
         /// <summary>
-        /// Power on (Cmd: 0x11) pdf page 42 
-        /// Get: [HEADER=0xAA][Cmd=0x11][ID][DATA_LEN=0x00][CS=0x00]		
+        /// Power on (Cmd: 0x11) pdf page 42
+        /// Get: [HEADER=0xAA][Cmd=0x11][ID][DATA_LEN=0x00][CS=0x00]
         /// </summary>
         public void PowerGet()
         {
             //SendBytes(PowerGetCmd);
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.PowerControl, 0x00, 0x00, 0x00 });
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.PowerControl,
+                    0x00,
+                    0x00,
+                    0x00,
+                }
+            );
         }
 
         /// <summary>
@@ -915,11 +1114,10 @@ namespace PepperDashPluginSamsungMdcDisplay
         #endregion
 
 
-
         #region Inputs, InputPorts and ExecuteSwitch
 
         /// <summary>
-        /// Add routing input port 
+        /// Add routing input port
         /// </summary>
         /// <param name="port"></param>
         /// <param name="fbMatch"></param>
@@ -935,15 +1133,19 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// <param name="selector"></param>
         public override void ExecuteSwitch(object selector)
         {
+            if (selector is null)
+            {
+                return;
+            }
+
             if (_powerIsOn)
             {
                 if (selector is Action actionToExecute)
                 {
                     actionToExecute();
                 }
-
             }
-            else // if power is off, wait until we get on FB to send it. 
+            else // if power is off, wait until we get on FB to send it.
             {
                 // One-time event handler to wait for power on before executing switch
                 EventHandler<FeedbackEventArgs> handler = null; // necessary to allow reference inside lambda to handler
@@ -970,30 +1172,96 @@ namespace PepperDashPluginSamsungMdcDisplay
         {
             if (_config.ActiveInputs != null && _config.ActiveInputs.Count > 0)
             {
-                Inputs = new SamsungInputs
-                {
-                    Items = new Dictionary<byte, ISelectableItem>()
-                };
+                Inputs = new SamsungInputs { Items = new Dictionary<byte, ISelectableItem>() };
 
-                var activeInputsMap = _config.ActiveInputs.ToDictionary(ai => ai.Key, ai => ai.Name);
+                var activeInputsMap = _config.ActiveInputs.ToDictionary(
+                    ai => ai.Key,
+                    ai => ai.Name
+                );
 
                 var allInputs = new Dictionary<string, KeyValuePair<byte, SamsungInput>>
-        {
-            { "hdmi1", new KeyValuePair<byte, SamsungInput>(SamsungMdcCommands.InputHdmi1, new SamsungInput("hdmi1", "HDMI 1", this, InputHdmi1)) },
-            { "hdmi2", new KeyValuePair<byte, SamsungInput>(SamsungMdcCommands.InputHdmi2, new SamsungInput("hdmi2", "HDMI 2", this, InputHdmi2)) },
-            { "hdmi3", new KeyValuePair<byte, SamsungInput>(SamsungMdcCommands.InputHdmi3, new SamsungInput("hdmi3", "HDMI 3", this, InputHdmi3)) },
-            { "hdmi4", new KeyValuePair<byte, SamsungInput>(SamsungMdcCommands.InputHdmi4, new SamsungInput("hdmi4", "HDMI 4", this, InputHdmi4)) },
-            { "displayPort1", new KeyValuePair<byte, SamsungInput>(SamsungMdcCommands.InputDisplayPort1, new SamsungInput("displayPort1", "Display Port 1", this, InputDisplayPort1)) },
-            { "displayPort2", new KeyValuePair<byte, SamsungInput>(SamsungMdcCommands.InputDisplayPort2, new SamsungInput("displayPort2", "Display Port 2", this, InputDisplayPort2)) },
-            { "dvi1", new KeyValuePair<byte, SamsungInput>(SamsungMdcCommands.InputDvi1, new SamsungInput("dvi1", "DVI 1", this, InputDvi1)) },
-            { "magicInfo", new KeyValuePair<byte, SamsungInput>(SamsungMdcCommands.InputMagicInfo, new SamsungInput("magicInfo", "Magic Info", this, InputMagicInfo)) }
-        };
+                {
+                    {
+                        "hdmi1",
+                        new KeyValuePair<byte, SamsungInput>(
+                            SamsungMdcCommands.InputHdmi1,
+                            new SamsungInput("hdmi1", "HDMI 1", this, InputHdmi1)
+                        )
+                    },
+                    {
+                        "hdmi2",
+                        new KeyValuePair<byte, SamsungInput>(
+                            SamsungMdcCommands.InputHdmi2,
+                            new SamsungInput("hdmi2", "HDMI 2", this, InputHdmi2)
+                        )
+                    },
+                    {
+                        "hdmi3",
+                        new KeyValuePair<byte, SamsungInput>(
+                            SamsungMdcCommands.InputHdmi3,
+                            new SamsungInput("hdmi3", "HDMI 3", this, InputHdmi3)
+                        )
+                    },
+                    {
+                        "hdmi4",
+                        new KeyValuePair<byte, SamsungInput>(
+                            SamsungMdcCommands.InputHdmi4,
+                            new SamsungInput("hdmi4", "HDMI 4", this, InputHdmi4)
+                        )
+                    },
+                    {
+                        "displayPort1",
+                        new KeyValuePair<byte, SamsungInput>(
+                            SamsungMdcCommands.InputDisplayPort1,
+                            new SamsungInput(
+                                "displayPort1",
+                                "Display Port 1",
+                                this,
+                                InputDisplayPort1
+                            )
+                        )
+                    },
+                    {
+                        "displayPort2",
+                        new KeyValuePair<byte, SamsungInput>(
+                            SamsungMdcCommands.InputDisplayPort2,
+                            new SamsungInput(
+                                "displayPort2",
+                                "Display Port 2",
+                                this,
+                                InputDisplayPort2
+                            )
+                        )
+                    },
+                    {
+                        "dvi1",
+                        new KeyValuePair<byte, SamsungInput>(
+                            SamsungMdcCommands.InputDvi1,
+                            new SamsungInput("dvi1", "DVI 1", this, InputDvi1)
+                        )
+                    },
+                    {
+                        "magicInfo",
+                        new KeyValuePair<byte, SamsungInput>(
+                            SamsungMdcCommands.InputMagicInfo,
+                            new SamsungInput("magicInfo", "Magic Info", this, InputMagicInfo)
+                        )
+                    },
+                };
 
                 foreach (var activeInput in activeInputsMap)
                 {
                     if (allInputs.TryGetValue(activeInput.Key, out var input))
                     {
-                        Inputs.Items.Add(input.Key, new SamsungInput(input.Value.Key, activeInput.Value, this, input.Value.Select));
+                        Inputs.Items.Add(
+                            input.Key,
+                            new SamsungInput(
+                                input.Value.Key,
+                                activeInput.Value,
+                                this,
+                                input.Value.Select
+                            )
+                        );
                     }
                 }
             }
@@ -1002,22 +1270,53 @@ namespace PepperDashPluginSamsungMdcDisplay
                 Inputs = new SamsungInputs
                 {
                     Items = new Dictionary<byte, ISelectableItem>
-            {
-                { SamsungMdcCommands.InputHdmi1, new SamsungInput("hdmi1", "HDMI 1", this, InputHdmi1) },
-                { SamsungMdcCommands.InputHdmi2, new SamsungInput("hdmi2", "HDMI 2", this, InputHdmi2) },
-                { SamsungMdcCommands.InputHdmi3, new SamsungInput("hdmi3", "HDMI 3", this, InputHdmi3) },
-                { SamsungMdcCommands.InputHdmi4, new SamsungInput("hdmi4", "HDMI 4", this, InputHdmi4) },
-                { SamsungMdcCommands.InputDisplayPort1, new SamsungInput("displayPort1", "Display Port 1", this, InputDisplayPort1) },
-                { SamsungMdcCommands.InputDisplayPort2, new SamsungInput("displayPort2", "Display Port 2", this, InputDisplayPort2) },
-                { SamsungMdcCommands.InputDvi1, new SamsungInput("dvi1", "DVI 1", this, InputDvi1) },
-                { SamsungMdcCommands.InputMagicInfo, new SamsungInput("magicInfo", "Magic Info", this, InputMagicInfo) }
-            }
+                    {
+                        {
+                            SamsungMdcCommands.InputHdmi1,
+                            new SamsungInput("hdmi1", "HDMI 1", this, InputHdmi1)
+                        },
+                        {
+                            SamsungMdcCommands.InputHdmi2,
+                            new SamsungInput("hdmi2", "HDMI 2", this, InputHdmi2)
+                        },
+                        {
+                            SamsungMdcCommands.InputHdmi3,
+                            new SamsungInput("hdmi3", "HDMI 3", this, InputHdmi3)
+                        },
+                        {
+                            SamsungMdcCommands.InputHdmi4,
+                            new SamsungInput("hdmi4", "HDMI 4", this, InputHdmi4)
+                        },
+                        {
+                            SamsungMdcCommands.InputDisplayPort1,
+                            new SamsungInput(
+                                "displayPort1",
+                                "Display Port 1",
+                                this,
+                                InputDisplayPort1
+                            )
+                        },
+                        {
+                            SamsungMdcCommands.InputDisplayPort2,
+                            new SamsungInput(
+                                "displayPort2",
+                                "Display Port 2",
+                                this,
+                                InputDisplayPort2
+                            )
+                        },
+                        {
+                            SamsungMdcCommands.InputDvi1,
+                            new SamsungInput("dvi1", "DVI 1", this, InputDvi1)
+                        },
+                        {
+                            SamsungMdcCommands.InputMagicInfo,
+                            new SamsungInput("magicInfo", "Magic Info", this, InputMagicInfo)
+                        },
+                    },
                 };
             }
         }
-
-
-
 
         /// <summary>
         /// Input HDMI 1 (Cmd: 0x14) pdf page 426
@@ -1025,7 +1324,17 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// </summary>
         public void InputHdmi1()
         {
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.InputSourceControl, 0x00, 0x01, SamsungMdcCommands.InputHdmi1, 0x00 });
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.InputSourceControl,
+                    0x00,
+                    0x01,
+                    SamsungMdcCommands.InputHdmi1,
+                    0x00,
+                }
+            );
         }
 
         /// <summary>
@@ -1034,7 +1343,17 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// </summary>
         public void InputHdmi2()
         {
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.InputSourceControl, 0x00, 0x01, SamsungMdcCommands.InputHdmi2, 0x00 });
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.InputSourceControl,
+                    0x00,
+                    0x01,
+                    SamsungMdcCommands.InputHdmi2,
+                    0x00,
+                }
+            );
         }
 
         /// <summary>
@@ -1043,7 +1362,17 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// </summary>
         public void InputHdmi3()
         {
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.InputSourceControl, 0x00, 0x01, SamsungMdcCommands.InputHdmi3, 0x00 });
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.InputSourceControl,
+                    0x00,
+                    0x01,
+                    SamsungMdcCommands.InputHdmi3,
+                    0x00,
+                }
+            );
         }
 
         /// <summary>
@@ -1052,7 +1381,17 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// </summary>
         public void InputHdmi4()
         {
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.InputSourceControl, 0x00, 0x01, SamsungMdcCommands.InputHdmi4, 0x00 });
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.InputSourceControl,
+                    0x00,
+                    0x01,
+                    SamsungMdcCommands.InputHdmi4,
+                    0x00,
+                }
+            );
         }
 
         /// <summary>
@@ -1061,7 +1400,17 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// </summary>
         public void InputDisplayPort1()
         {
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.InputSourceControl, 0x00, 0x01, SamsungMdcCommands.InputDisplayPort1, 0x00 });
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.InputSourceControl,
+                    0x00,
+                    0x01,
+                    SamsungMdcCommands.InputDisplayPort1,
+                    0x00,
+                }
+            );
         }
 
         /// <summary>
@@ -1070,7 +1419,17 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// </summary>
         public void InputDisplayPort2()
         {
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.InputSourceControl, 0x00, 0x01, SamsungMdcCommands.InputDisplayPort2, 0x00 });
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.InputSourceControl,
+                    0x00,
+                    0x01,
+                    SamsungMdcCommands.InputDisplayPort2,
+                    0x00,
+                }
+            );
         }
 
         /// <summary>
@@ -1079,7 +1438,17 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// </summary>
         public void InputDvi1()
         {
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.InputSourceControl, 0x00, 0x01, SamsungMdcCommands.InputDvi1, 0x00 });
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.InputSourceControl,
+                    0x00,
+                    0x01,
+                    SamsungMdcCommands.InputDvi1,
+                    0x00,
+                }
+            );
         }
 
         /// <summary>
@@ -1088,7 +1457,17 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// </summary>
         public void InputMagicInfo()
         {
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.InputSourceControl, 0x00, 0x01, SamsungMdcCommands.InputMagicInfo, 0x00 });
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.InputSourceControl,
+                    0x00,
+                    0x01,
+                    SamsungMdcCommands.InputMagicInfo,
+                    0x00,
+                }
+            );
         }
 
         /// <summary>
@@ -1097,12 +1476,31 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// </summary>
         public void InputGet()
         {
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.InputSourceControl, 0x00, 0x00, 0x00 });
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.InputSourceControl,
+                    0x00,
+                    0x00,
+                    0x00,
+                }
+            );
         }
 
         public void InputGeneric(byte data)
         {
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.InputSourceControl, 0x00, 0x01, data, 0x00 });
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.InputSourceControl,
+                    0x00,
+                    0x01,
+                    data,
+                    0x00,
+                }
+            );
         }
 
         public static byte ConvertStringToHex(string src)
@@ -1117,7 +1515,8 @@ namespace PepperDashPluginSamsungMdcDisplay
         {
             var newInput = InputPorts.FirstOrDefault(i => i.FeedbackMatchObject.Equals(b));
 
-            if (newInput == null) return;
+            if (newInput == null)
+                return;
 
             int inputIndex;
 
@@ -1127,7 +1526,11 @@ namespace PepperDashPluginSamsungMdcDisplay
             }
             catch (Exception e)
             {
-                this.LogError("Unable to match feedback {input} with input. Exception : {message}", b, e.Message);
+                this.LogError(
+                    "Unable to match feedback {input} with input. Exception : {message}",
+                    b,
+                    e.Message
+                );
                 this.LogDebug(e, "Stack trace: ");
                 return;
             }
@@ -1138,7 +1541,6 @@ namespace PepperDashPluginSamsungMdcDisplay
 
             if (Inputs.Items.ContainsKey(b))
             {
-
                 foreach (var item in Inputs.Items)
                 {
                     item.Value.IsSelected = item.Key.Equals(b);
@@ -1147,7 +1549,6 @@ namespace PepperDashPluginSamsungMdcDisplay
 
             Inputs.CurrentItem = b;
         }
-
 
         private void UpdateBooleanFeedback()
         {
@@ -1168,7 +1569,6 @@ namespace PepperDashPluginSamsungMdcDisplay
         #endregion
 
 
-
         #region IBasicVolumeWithFeedback Members
 
         /// <summary>
@@ -1181,11 +1581,10 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// </summary>
         public BoolFeedback MuteFeedback { get; private set; }
 
-
         /// <summary>
         /// Scales the level to the range of the display and sends the command
         /// Volume level control (Cmd: 0x12) pdf page 44
-        /// Level range 0d - 100d (0x00 - 0x64)		
+        /// Level range 0d - 100d (0x00 - 0x64)
         /// Set: [HEADER=0xAA][Cmd=0x12][ID][DATA_LEN=0x01][DATA-1=(Scaled)][CS=0x00]
         /// </summary>
         /// <param name="level"></param>
@@ -1202,7 +1601,17 @@ namespace PepperDashPluginSamsungMdcDisplay
                 scaled = (int)NumericalHelpers.Scale(level, 0, 65535, _lowerLimit, _upperLimit);
             }
             // The inputs to Scale ensure that byte won't overflow
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.VolumeControl, 0x00, 0x01, Convert.ToByte(scaled), 0x00 });
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.VolumeControl,
+                    0x00,
+                    0x01,
+                    Convert.ToByte(scaled),
+                    0x00,
+                }
+            );
             if (_isMuted)
             {
                 MuteOff();
@@ -1255,12 +1664,21 @@ namespace PepperDashPluginSamsungMdcDisplay
 
         /// <summary>
         /// Volume level control (Cmd: 0x12) pdf page 44
-        /// Level range 0d - 100d (0x00 - 0x64)		
+        /// Level range 0d - 100d (0x00 - 0x64)
         /// Get: [HEADER=0xAA][Cmd=0x12][ID][DATA_LEN=0x00][CS=0x00]
         /// </summary>
         public void VolumeGet()
         {
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.VolumeControl, 0x00, 0x00, 0x00 });
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.VolumeControl,
+                    0x00,
+                    0x00,
+                    0x00,
+                }
+            );
             if (_pollTimer != null)
             {
                 _pollTimer.Reset(1000);
@@ -1302,7 +1720,17 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// </summary>
         public void MuteOff()
         {
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.MuteControl, 0x00, 0x01, SamsungMdcCommands.MuteOff, 0x00 });
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.MuteControl,
+                    0x00,
+                    0x01,
+                    SamsungMdcCommands.MuteOff,
+                    0x00,
+                }
+            );
         }
 
         /// <summary>
@@ -1311,7 +1739,17 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// </summary>
         public void MuteOn()
         {
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.MuteControl, 0x00, 0x01, SamsungMdcCommands.MuteOn, 0x00 });
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.MuteControl,
+                    0x00,
+                    0x01,
+                    SamsungMdcCommands.MuteOn,
+                    0x00,
+                }
+            );
         }
 
         /// <summary>
@@ -1335,7 +1773,16 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// </summary>
         public void MuteGet()
         {
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.MuteControl, 0x00, 0x00, 0x00 });
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.MuteControl,
+                    0x00,
+                    0x00,
+                    0x00,
+                }
+            );
         }
 
         /// <summary>
@@ -1351,14 +1798,19 @@ namespace PepperDashPluginSamsungMdcDisplay
         #endregion
 
 
-
-
         #region System & Network Information
 
         private void UpdateMacAddress(byte[] macInfo)
         {
-            DeviceInfo.MacAddress = string.Format("{0X2}:{1X2}:{2X2}:{3X2}:{4X2}:{5X2}", macInfo[0], macInfo[1],
-                macInfo[2], macInfo[3], macInfo[4], macInfo[5]);
+            DeviceInfo.MacAddress = string.Format(
+                "{0:X2}:{1:X2}:{2:X2}:{3:X2}:{4:X2}:{5:X2}",
+                macInfo[0],
+                macInfo[1],
+                macInfo[2],
+                macInfo[3],
+                macInfo[4],
+                macInfo[5]
+            );
 
             OnDeviceInfoChange();
         }
@@ -1369,8 +1821,13 @@ namespace PepperDashPluginSamsungMdcDisplay
 
             Array.Copy(ipAddressInfo, 0, ipAddress, 0, 4);
 
-            DeviceInfo.IpAddress = string.Format("{0}.{1}.{2}.{3}", ipAddress[0], ipAddress[1], ipAddress[2],
-                ipAddress[3]);
+            DeviceInfo.IpAddress = string.Format(
+                "{0}.{1}.{2}.{3}",
+                ipAddress[0],
+                ipAddress[1],
+                ipAddress[2],
+                ipAddress[3]
+            );
 
             OnDeviceInfoChange();
         }
@@ -1408,17 +1865,24 @@ namespace PepperDashPluginSamsungMdcDisplay
         #endregion
 
 
-
-
         #region Led Information & Monitoring
 
         /// <summary>
         /// Temeprature Control (Cmd: 0x85) pdf page 142
-        /// Get: [HEADER=0xAA][Cmd=0x85][ID][DATA_LEN=0x00][CS=0x00]		
+        /// Get: [HEADER=0xAA][Cmd=0x85][ID][DATA_LEN=0x00][CS=0x00]
         /// </summary>
         public void TemperatureMaxGet()
         {
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.TemperatureControl, 0x00, 0x00, 0x00 });
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.TemperatureControl,
+                    0x00,
+                    0x00,
+                    0x00,
+                }
+            );
         }
 
         /// <summary>
@@ -1428,7 +1892,17 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// </summary>
         public void LedProductMonitorGet()
         {
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.LedProductFeature, 0x00, 0x01, SamsungMdcCommands.LedSubcmdMonitoring, 0x00 });
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.LedProductFeature,
+                    0x00,
+                    0x01,
+                    SamsungMdcCommands.LedSubcmdMonitoring,
+                    0x00,
+                }
+            );
         }
 
         /// <summary>
@@ -1458,7 +1932,6 @@ namespace PepperDashPluginSamsungMdcDisplay
         #endregion
 
 
-
         #region Implementation of IDeviceInfoProvider
 
         //needs testing
@@ -1473,14 +1946,50 @@ namespace PepperDashPluginSamsungMdcDisplay
                 DeviceInfo = new DeviceInfo();
             }
 
-            //get serial number (0x0B)            
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.SerialNumberControl, 0x00, 0x00, 0x00, });
+            //get serial number (0x0B)
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.SerialNumberControl,
+                    0x00,
+                    0x00,
+                    0x00,
+                }
+            );
             //get firmware version (0x0E)
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.SwVersionControl, 0x00, 0x00, 0x00 });
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.SwVersionControl,
+                    0x00,
+                    0x00,
+                    0x00,
+                }
+            );
             //get IP Info (0x1B, 0x82)
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.NetworkConfiguration, 0x00, 0x00, 0x00 });
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.NetworkConfiguration,
+                    0x00,
+                    0x00,
+                    0x00,
+                }
+            );
             //get MAC address (0x1B, 0x81)
-            SendBytes(new byte[] { SamsungMdcCommands.Header, SamsungMdcCommands.SystemConfigurationMacAddress, 0x00, 0x00, 0x00 });
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.SystemConfigurationMacAddress,
+                    0x00,
+                    0x00,
+                    0x00,
+                }
+            );
         }
 
         public DeviceInfo DeviceInfo { get; private set; }
