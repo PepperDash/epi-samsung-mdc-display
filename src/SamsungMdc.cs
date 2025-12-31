@@ -440,7 +440,7 @@ namespace PepperDashPluginSamsungMdcDisplay
         }
 
         /// <summary>
-        /// Communication bytes recieved
+        /// Communication bytes received
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e">Event args</param>
