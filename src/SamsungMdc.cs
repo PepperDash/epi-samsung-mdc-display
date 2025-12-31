@@ -1803,7 +1803,7 @@ namespace PepperDashPluginSamsungMdcDisplay
         private void UpdateMacAddress(byte[] macInfo)
         {
             DeviceInfo.MacAddress = string.Format(
-                "{0X2}:{1X2}:{2X2}:{3X2}:{4X2}:{5X2}",
+                "{0:X2}:{1:X2}:{2:X2}:{3:X2}:{4:X2}:{5:X2}",
                 macInfo[0],
                 macInfo[1],
                 macInfo[2],
