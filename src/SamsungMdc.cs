@@ -736,7 +736,7 @@ namespace PepperDashPluginSamsungMdcDisplay
                     65535,
                     800,
                     80,
-                    v => SetVolume((ushort)v),
+                    v => SetVolumeInternal((ushort)v, skipDebounce: true),
                     () => _lastVolumeSent
                 );
             }
@@ -751,7 +751,7 @@ namespace PepperDashPluginSamsungMdcDisplay
                     (int)scaleUpper,
                     800,
                     80,
-                    v => SetVolume((ushort)v),
+                    v => SetVolumeInternal((ushort)v, skipDebounce: true),
                     () => _lastVolumeSent
                 );
             }
@@ -1598,53 +1598,78 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// <param name="level"></param>
         public void SetVolume(ushort level)
         {
-            _queuedVolumeLevel = level;
-            
-            // Restart the debounce timer - waits 500ms after last change before sending
-            if (_volumeDebounceTimer != null)
-            {
-                _volumeDebounceTimer.Stop();
-                _volumeDebounceTimer.Dispose();
-            }
+            // Fader movements use debounce (default)
+            SetVolumeInternal(level, skipDebounce: false);
+        }
 
-            _volumeDebounceTimer = new CTimer(
-                obj =>
+        /// <summary>
+        /// Internal method for volume setting with optional debounce bypass
+        /// </summary>
+        private void SetVolumeInternal(ushort level, bool skipDebounce = false)
+        {
+            if (skipDebounce)
+            {
+                // Send immediately for button presses
+                SendVolumeCommand(level);
+            }
+            else
+            {
+                // Debounce for fader movements
+                _queuedVolumeLevel = level;
+                
+                // Restart the debounce timer - waits 500ms after last change before sending
+                if (_volumeDebounceTimer != null)
                 {
-                    // Send the volume command after 500ms of no changes
-                    int scaled;
-                    _lastVolumeSent = _queuedVolumeLevel;
-                    if (!ScaleVolume)
+                    _volumeDebounceTimer.Stop();
+                    _volumeDebounceTimer.Dispose();
+                }
+
+                _volumeDebounceTimer = new CTimer(
+                    obj =>
                     {
-                        scaled = (int)NumericalHelpers.Scale(_queuedVolumeLevel, 0, 65535, 0, 100);
-                    }
-                    else
-                    {
-                        scaled = (int)NumericalHelpers.Scale(_queuedVolumeLevel, 0, 65535, _lowerLimit, _upperLimit);
-                    }
-                    
-                    SendBytes(
-                        new byte[]
-                        {
-                            SamsungMdcCommands.Header,
-                            SamsungMdcCommands.VolumeControl,
-                            0x00,
-                            0x01,
-                            Convert.ToByte(scaled),
-                            0x00,
-                        }
-                    );
-                    
-                    if (_isMuted)
-                    {
-                        MuteOff();
-                    }
-                    
-                    // Clear the timer after it fires so feedback can be fired on device response
-                    _volumeDebounceTimer = null;
-                },
-                null,
-                500  // 500ms debounce
+                        // Send the volume command after 500ms of no changes
+                        SendVolumeCommand(_queuedVolumeLevel);
+                        // Clear the timer after it fires so feedback can be fired on device response
+                        _volumeDebounceTimer = null;
+                    },
+                    null,
+                    500  // 500ms debounce
+                );
+            }
+        }
+
+        /// <summary>
+        /// Internal method to send volume command to device
+        /// </summary>
+        private void SendVolumeCommand(ushort level)
+        {
+            int scaled;
+            _lastVolumeSent = level;
+            if (!ScaleVolume)
+            {
+                scaled = (int)NumericalHelpers.Scale(level, 0, 65535, 0, 100);
+            }
+            else
+            {
+                scaled = (int)NumericalHelpers.Scale(level, 0, 65535, _lowerLimit, _upperLimit);
+            }
+            
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.VolumeControl,
+                    0x00,
+                    0x01,
+                    Convert.ToByte(scaled),
+                    0x00,
+                }
             );
+            
+            if (_isMuted)
+            {
+                MuteOff();
+            }
         }
 
         /// <summary>
