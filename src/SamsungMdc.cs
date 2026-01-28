@@ -143,7 +143,13 @@ namespace PepperDashPluginSamsungMdcDisplay
         private int _lastVolumeSent;
         private bool _volumeIsRamping;
         private ushort _volumeLevelForSig;
+        private byte _lastVolumeFeedbackReceived;
+        private byte _lastMuteFeedbackReceived;
+        private byte _lastInputFeedbackReceived;
         private bool _isMuted;
+
+        private CTimer _volumeDebounceTimer;
+        private ushort _queuedVolumeLevel;
 
         private readonly bool _showVolumeControls;
         private ActionIncrementer _volumeIncrementer;
@@ -486,14 +492,6 @@ namespace PepperDashPluginSamsungMdcDisplay
                 if (newBytes[0] == 0xAA)
                 {
                     _incomingBuffer = newBytes;
-                    if (Debug.Level == 2)
-                    {
-                        // This check is here to prevent following string format from building unnecessarily on level 0 or 1
-                        this.LogVerbose(
-                            "Add to buffer:{0}",
-                            ComTextHelper.GetEscapedText(_incomingBuffer)
-                        );
-                    }
                 }
                 else
                 {
@@ -513,8 +511,6 @@ namespace PepperDashPluginSamsungMdcDisplay
             // input ack rx: {header}{command}{id}{dataLen}{ack/nak}{r-cmd}{val-1}{checksum}
             // input ack rx: { 0xAA }{ 0xFF  }{id}{ 0x03  }{'A'/'N'}{ 0x14}{input}{checksum}
             var command = message[5];
-
-            this.LogVerbose("Add to buffer:{0}", ComTextHelper.GetEscapedText(_incomingBuffer));
 
             switch (command)
             {
@@ -556,21 +552,33 @@ namespace PepperDashPluginSamsungMdcDisplay
                 // Volume level
                 case SamsungMdcCommands.VolumeControl:
                 {
-                    this.LogVerbose("VolumeControl-'{0}d'", message[6]);
+                    if (message[6] != _lastVolumeFeedbackReceived)
+                    {
+                        this.LogVerbose("VolumeControl-'{0}d'", message[6]);
+                        _lastVolumeFeedbackReceived = message[6];
+                    }
                     UpdateVolumeFb(message[6]);
                     break;
                 }
                 // Volume mute status
                 case SamsungMdcCommands.MuteControl:
                 {
-                    this.LogVerbose("MuteControl-'{0}d'", message[6]);
+                    if (message[6] != _lastMuteFeedbackReceived)
+                    {
+                        this.LogVerbose("MuteControl-'{0}d'", message[6]);
+                        _lastMuteFeedbackReceived = message[6];
+                    }
                     UpdateMuteFb(message[6]);
                     break;
                 }
                 // Input status
                 case SamsungMdcCommands.InputSourceControl:
                 {
-                    this.LogVerbose("InputSourceControl-'{0}d'", message[6]);
+                    if (message[6] != _lastInputFeedbackReceived)
+                    {
+                        this.LogVerbose("InputSourceControl-'{0}d'", message[6]);
+                        _lastInputFeedbackReceived = message[6];
+                    }
                     UpdateInputFb(message[6]);
                     break;
                 }
@@ -728,7 +736,7 @@ namespace PepperDashPluginSamsungMdcDisplay
                     65535,
                     800,
                     80,
-                    v => SetVolume((ushort)v),
+                    v => SetVolumeInternal((ushort)v, skipDebounce: true),
                     () => _lastVolumeSent
                 );
             }
@@ -743,7 +751,7 @@ namespace PepperDashPluginSamsungMdcDisplay
                     (int)scaleUpper,
                     800,
                     80,
-                    v => SetVolume((ushort)v),
+                    v => SetVolumeInternal((ushort)v, skipDebounce: true),
                     () => _lastVolumeSent
                 );
             }
@@ -1590,6 +1598,51 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// <param name="level"></param>
         public void SetVolume(ushort level)
         {
+            // Fader movements use debounce (default)
+            SetVolumeInternal(level, skipDebounce: false);
+        }
+
+        /// <summary>
+        /// Internal method for volume setting with optional debounce bypass
+        /// </summary>
+        private void SetVolumeInternal(ushort level, bool skipDebounce = false)
+        {
+            if (skipDebounce)
+            {
+                // Send immediately for button presses
+                SendVolumeCommand(level);
+            }
+            else
+            {
+                // Debounce for fader movements
+                _queuedVolumeLevel = level;
+                
+                // Restart the debounce timer - waits 500ms after last change before sending
+                if (_volumeDebounceTimer != null)
+                {
+                    _volumeDebounceTimer.Stop();
+                    _volumeDebounceTimer.Dispose();
+                }
+
+                _volumeDebounceTimer = new CTimer(
+                    obj =>
+                    {
+                        // Send the volume command after 500ms of no changes
+                        SendVolumeCommand(_queuedVolumeLevel);
+                        // Clear the timer after it fires so feedback can be fired on device response
+                        _volumeDebounceTimer = null;
+                    },
+                    null,
+                    500  // 500ms debounce
+                );
+            }
+        }
+
+        /// <summary>
+        /// Internal method to send volume command to device
+        /// </summary>
+        private void SendVolumeCommand(ushort level)
+        {
             int scaled;
             _lastVolumeSent = level;
             if (!ScaleVolume)
@@ -1600,7 +1653,7 @@ namespace PepperDashPluginSamsungMdcDisplay
             {
                 scaled = (int)NumericalHelpers.Scale(level, 0, 65535, _lowerLimit, _upperLimit);
             }
-            // The inputs to Scale ensure that byte won't overflow
+            
             SendBytes(
                 new byte[]
                 {
@@ -1612,6 +1665,7 @@ namespace PepperDashPluginSamsungMdcDisplay
                     0x00,
                 }
             );
+            
             if (_isMuted)
             {
                 MuteOff();
@@ -1706,12 +1760,15 @@ namespace PepperDashPluginSamsungMdcDisplay
                 _lastVolumeSent = newVol;
             }
 
-            if (newVol == _volumeLevelForSig)
-            {
-                return;
-            }
+            // Always update the internal state
             _volumeLevelForSig = newVol;
-            VolumeLevelFeedback.FireUpdate();
+            
+            // Only fire feedback if debounce timer is not active (i.e., not awaiting user to finish adjusting fader)
+            // This prevents echo loops while still updating UI on device changes
+            if (_volumeDebounceTimer == null)
+            {
+                VolumeLevelFeedback.FireUpdate();
+            }
         }
 
         /// <summary>
