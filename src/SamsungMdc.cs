@@ -35,7 +35,8 @@ namespace PepperDashPluginSamsungMdcDisplay
             IInputHdmi3,
             IInputHdmi4,
             IHasInputs<byte>,
-            IRoutingSinkWithCurrentSources
+            IRoutingSinkWithCurrentSources,
+            IDisposable
     {
         public StatusMonitorBase CommunicationMonitor { get; private set; }
         public IBasicCommunication Communication { get; private set; }
@@ -150,6 +151,11 @@ namespace PepperDashPluginSamsungMdcDisplay
 
         private CTimer _volumeDebounceTimer;
         private ushort _queuedVolumeLevel;
+
+        private readonly object _volumeDebounceLock = new object();
+
+        private readonly object _disposeLock = new object();
+        private bool _isDisposed;
 
         private readonly bool _showVolumeControls;
         private ActionIncrementer _volumeIncrementer;
@@ -407,6 +413,98 @@ namespace PepperDashPluginSamsungMdcDisplay
             Communication.Connect();
 
             CommunicationMonitor.Start();
+        }
+
+        public override bool Deactivate()
+        {
+            Dispose();
+            return base.Deactivate();
+        }
+
+        public void Dispose()
+        {
+            lock (_disposeLock)
+            {
+                if (_isDisposed)
+                {
+                    return;
+                }
+
+                _isDisposed = true;
+            }
+
+            try
+            {
+                CTimer volumeDebounceTimerToDispose;
+                lock (_volumeDebounceLock)
+                {
+                    volumeDebounceTimerToDispose = _volumeDebounceTimer;
+                    _volumeDebounceTimer = null;
+                }
+
+                if (volumeDebounceTimerToDispose != null)
+                {
+                    volumeDebounceTimerToDispose.Stop();
+                    volumeDebounceTimerToDispose.Dispose();
+                }
+            }
+            catch (Exception ex)
+            {
+                this.LogDebug(ex, "Exception disposing volume debounce timer");
+            }
+
+            try
+            {
+                if (_pollTimer != null)
+                {
+                    _pollTimer.Stop();
+                    _pollTimer.Dispose();
+                    _pollTimer = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                this.LogDebug(ex, "Exception disposing poll timer");
+            }
+
+            try
+            {
+                if (_volumeIncrementer != null)
+                {
+                    _volumeIncrementer.Stop();
+                }
+            }
+            catch (Exception ex)
+            {
+                this.LogDebug(ex, "Exception stopping volume incrementer");
+            }
+
+            try
+            {
+                if (Communication != null)
+                {
+                    Communication.BytesReceived -= Communication_BytesReceived;
+                    Communication.Disconnect();
+                }
+            }
+            catch (Exception ex)
+            {
+                this.LogDebug(ex, "Exception disconnecting communication");
+            }
+
+            try
+            {
+                if (CommunicationMonitor != null)
+                {
+                    CommunicationMonitor.Stop();
+                }
+            }
+            catch (Exception ex)
+            {
+                this.LogDebug(ex, "Exception stopping communication monitor");
+            }
+
+            GC.SuppressFinalize(this);
         }
 
         /// <summary>
@@ -1607,6 +1705,11 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// </summary>
         private void SetVolumeInternal(ushort level, bool skipDebounce = false)
         {
+            if (_isDisposed)
+            {
+                return;
+            }
+
             if (skipDebounce)
             {
                 // Send immediately for button presses
@@ -1618,23 +1721,55 @@ namespace PepperDashPluginSamsungMdcDisplay
                 _queuedVolumeLevel = level;
                 
                 // Restart the debounce timer - waits 500ms after last change before sending
-                if (_volumeDebounceTimer != null)
+                CTimer volumeDebounceTimerToDispose;
+                lock (_volumeDebounceLock)
                 {
-                    _volumeDebounceTimer.Stop();
-                    _volumeDebounceTimer.Dispose();
+                    volumeDebounceTimerToDispose = _volumeDebounceTimer;
+                    _volumeDebounceTimer = null;
                 }
 
-                _volumeDebounceTimer = new CTimer(
+                if (volumeDebounceTimerToDispose != null)
+                {
+                    volumeDebounceTimerToDispose.Stop();
+                    volumeDebounceTimerToDispose.Dispose();
+                }
+
+                CTimer newTimer = null;
+                newTimer = new CTimer(
                     obj =>
                     {
+                        if (_isDisposed)
+                        {
+                            lock (_volumeDebounceLock)
+                            {
+                                if (ReferenceEquals(_volumeDebounceTimer, newTimer))
+                                {
+                                    _volumeDebounceTimer = null;
+                                }
+                            }
+                            return;
+                        }
+
                         // Send the volume command after 500ms of no changes
                         SendVolumeCommand(_queuedVolumeLevel);
+
                         // Clear the timer after it fires so feedback can be fired on device response
-                        _volumeDebounceTimer = null;
+                        lock (_volumeDebounceLock)
+                        {
+                            if (ReferenceEquals(_volumeDebounceTimer, newTimer))
+                            {
+                                _volumeDebounceTimer = null;
+                            }
+                        }
                     },
                     null,
                     500  // 500ms debounce
                 );
+
+                lock (_volumeDebounceLock)
+                {
+                    _volumeDebounceTimer = newTimer;
+                }
             }
         }
 
@@ -1765,7 +1900,13 @@ namespace PepperDashPluginSamsungMdcDisplay
             
             // Only fire feedback if debounce timer is not active (i.e., not awaiting user to finish adjusting fader)
             // This prevents echo loops while still updating UI on device changes
-            if (_volumeDebounceTimer == null)
+            bool shouldFire;
+            lock (_volumeDebounceLock)
+            {
+                shouldFire = _volumeDebounceTimer == null;
+            }
+
+            if (shouldFire)
             {
                 VolumeLevelFeedback.FireUpdate();
             }
