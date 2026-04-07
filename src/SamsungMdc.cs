@@ -482,7 +482,7 @@ namespace PepperDashPluginSamsungMdcDisplay
                     if (newBytes.Length >= dataLength)
                     {
                         var message = new byte[dataLength];
-                        newBytes.CopyTo(message, 0);
+                        Array.Copy(newBytes, 0, message, 0, dataLength);
                         ParseMessage(message);
                         byte[] clear = { };
                         _incomingBuffer = clear;
