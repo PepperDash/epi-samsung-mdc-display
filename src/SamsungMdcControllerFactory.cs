@@ -9,7 +9,7 @@ namespace PepperDashPluginSamsungMdcDisplay
     {
         public SamsungMdcControllerFactory()
         {
-            MinimumEssentialsFrameworkVersion = "2.4.7";
+            MinimumEssentialsFrameworkVersion = "3.0.0";
 
             TypeNames = new List<string> { "samsungMdcPlugin" };
         }
