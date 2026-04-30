@@ -28,8 +28,7 @@ namespace PepperDashPluginSamsungMdcDisplay
             ICommunicationMonitor,
             IBridgeAdvanced,
             IDeviceInfoProvider,
-            IHasInputs<byte>,
-            IRoutingSinkWithCurrentSources
+            IHasInputs<byte>
     {
         public StatusMonitorBase CommunicationMonitor { get; private set; }
         public IBasicCommunication Communication { get; private set; }
@@ -851,7 +850,7 @@ namespace PepperDashPluginSamsungMdcDisplay
                 AddRoutingInputPort(
                     new RoutingInputPort(
                         "usb",
-                        eRoutingSignalType.UsbInput | eRoutingSignalType.UsbOutput,
+                        eRoutingSignalType.Audio | eRoutingSignalType.Video,
                         eRoutingPortConnectionType.Streaming,
                         null,
                         this
