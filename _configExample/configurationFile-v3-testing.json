@@ -1,0 +1,129 @@
+{
+  "system": {},
+  "template": {
+    "devices": [
+      {
+        "key": "processor",
+        "uid": 0,
+        "type": "cp4",
+        "name": "CP4",
+        "group": "processor",
+        "supportedConfigModes": [
+          "compliance",
+          "essentials"
+        ],
+        "supportedSystemTypes": [
+          "hudType",
+          "presType",
+          "vtcType",
+          "custom"
+        ],
+        "supportsCompliance": true,
+        "properties": {
+          "numberOfComPorts": 2,
+          "numberOfIrPorts": 8,
+          "numberOfRelays": 8,
+          "numberOfDIOPorts": 8
+        }
+      },
+      {
+        "key": "Display01",
+        "uid": 1,
+        "name": "Samsung MDC Display 01",
+        "type": "samsungmdcplugin",
+        "group": "display",
+        "properties": {
+          "id": "01",
+          "control": {
+            "method": "tcpIp",
+            "tcpSshProperties": {
+              "address": "10.0.0.200",
+              "port": 1515,
+              "username": "",
+              "password": "",
+              "autoReconnect": true,
+              "autoReconnectIntervalMs": 10000
+            }
+          },
+          "pollIntervalMs": 4500,
+          "pollLedTemps": false,
+          "coolingTimeMs": 1500,
+          "warmingTimeMs": 1500,
+          "showVolumeControls": true,
+          "volumeUpperLimit": 100,
+          "volumeLowerLimit": 0,
+          "activeInputs": [
+            {
+              "key": "hdmi1",
+              "name": "HDMI 1"
+            },
+            {
+              "key": "hdmi2",
+              "name": "HDMI 2"
+            },
+            {
+              "key": "displayPort1",
+              "name": "Display Port 1"
+            },
+            {
+              "key": "dvi1",
+              "name": "DVI 1"
+            },
+            {
+              "key": "magicInfo",
+              "name": "Magic Info"
+            },
+            {
+              "key": "usb",
+              "name": "USB (Placeholder)"
+            }
+          ],
+          "friendlyNames": [
+            {
+              "inputKey": "hdmiIn1",
+              "name": "HDMI 1"
+            },
+            {
+              "inputKey": "hdmiIn2",
+              "name": "HDMI 2"
+            },
+            {
+              "inputKey": "hdmiIn3",
+              "name": "HDMI 3"
+            },
+            {
+              "inputKey": "hdmiIn4",
+              "name": "HDMI 4"
+            },
+            {
+              "inputKey": "displayPortIn1",
+              "name": "Display Port 1"
+            },
+            {
+              "inputKey": "displayPortIn2",
+              "name": "Display Port 2"
+            },
+            {
+              "inputKey": "dviIn",
+              "name": "DVI"
+            },
+            {
+              "inputKey": "usb",
+              "name": "USB"
+            }
+          ]
+        }
+      }
+    ],
+    "info": {
+      "comment": "Essentials v3 Samsung MDC plugin test config",
+      "lastModifiedDate": "2026-04-30T00:00:00.000Z",
+      "lastUid": 1,
+      "processorType": "cp4",
+      "requiredControlSofwareVersion": "",
+      "systemType": "custom"
+    },
+    "rooms": [],
+    "tieLines": []
+  }
+}
