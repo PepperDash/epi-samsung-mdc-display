@@ -1,5 +1,4 @@
-﻿using Independentsoft.Exchange;
-using PepperDash.Essentials.Core.DeviceTypeInterfaces;
+﻿using PepperDash.Essentials.Core.DeviceTypeInterfaces;
 using PepperDash.Essentials.Core.Queues;
 using System;
 using System.Collections.Generic;
