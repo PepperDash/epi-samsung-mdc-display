@@ -7,6 +7,7 @@ using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using System.Timers;
 using Crestron.SimplSharp;
 using Crestron.SimplSharpPro.DeviceSupport;
 using Newtonsoft.Json;
@@ -16,7 +17,6 @@ using PepperDash.Essentials.Core;
 using PepperDash.Essentials.Core.Bridges;
 using PepperDash.Essentials.Core.DeviceInfo;
 using PepperDash.Essentials.Core.DeviceTypeInterfaces;
-using PepperDash.Essentials.Devices.Displays;
 using Feedback = PepperDash.Essentials.Core.Feedback;
 using GenericTcpIpClient = PepperDash.Core.GenericTcpIpClient;
 
@@ -28,12 +28,6 @@ namespace PepperDashPluginSamsungMdcDisplay
             ICommunicationMonitor,
             IBridgeAdvanced,
             IDeviceInfoProvider,
-            IInputDisplayPort1,
-            IInputDisplayPort2,
-            IInputHdmi1,
-            IInputHdmi2,
-            IInputHdmi3,
-            IInputHdmi4,
             IHasInputs<byte>,
             IRoutingSinkWithCurrentSources
     {
@@ -402,7 +396,7 @@ namespace PepperDashPluginSamsungMdcDisplay
 
         #endregion
 
-        public override void Initialize()
+        protected override void Initialize()
         {
             Communication.Connect();
 
@@ -1000,16 +994,15 @@ namespace PepperDashPluginSamsungMdcDisplay
             IsWarmingUpFeedback.FireUpdate();
 
             // Fake power-up cycle
-            WarmupTimer = new CTimer(
-                o =>
-                {
-                    _isWarmingUp = false;
+            WarmupTimer = new Timer(WarmupTime) { AutoReset = false };
+            WarmupTimer.Elapsed += (sender, args) =>
+            {
+                _isWarmingUp = false;
 
-                    IsWarmingUpFeedback.FireUpdate();
-                    PowerIsOnFeedback.FireUpdate();
-                },
-                WarmupTime
-            );
+                IsWarmingUpFeedback.FireUpdate();
+                PowerIsOnFeedback.FireUpdate();
+            };
+            WarmupTimer.Start();
         }
 
         /// <summary>
@@ -1055,15 +1048,14 @@ namespace PepperDashPluginSamsungMdcDisplay
             IsCoolingDownFeedback.FireUpdate();
 
             // Fake cool-down cycle
-            CooldownTimer = new CTimer(
-                o =>
-                {
-                    _isCoolingDown = false;
-                    PowerIsOnFeedback.FireUpdate();
-                    IsCoolingDownFeedback.FireUpdate();
-                },
-                CooldownTime
-            );
+            CooldownTimer = new Timer(CooldownTime) { AutoReset = false };
+            CooldownTimer.Elapsed += (sender, args) =>
+            {
+                _isCoolingDown = false;
+                PowerIsOnFeedback.FireUpdate();
+                IsCoolingDownFeedback.FireUpdate();
+            };
+            CooldownTimer.Start();
         }
 
         /// <summary>

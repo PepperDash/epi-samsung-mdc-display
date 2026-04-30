@@ -5,13 +5,13 @@
   </PropertyGroup>
 
   <PropertyGroup>
-	  <TargetFramework>net472</TargetFramework>
+	  <TargetFramework>net8</TargetFramework>
 	  <RootNamespace>Pepperdash.Essentials.Plugins.Display.Samsung.MDC</RootNamespace>
 	  <Deterministic>false</Deterministic>
 	  <AssemblyTitle>EPI.Samsung.MDC</AssemblyTitle>
 	  <Company>PepperDash Technologies</Company>
 	  <Description>This software is a plugin designed to work as a part of PepperDash Essentials for Crestron control processors. This plugin allows for control of Samsung MDC Displays.</Description>
-	  <Copyright>Copyright 2025</Copyright>
+	  <Copyright>Copyright 2026</Copyright>
 	  <Version>1.0.0-local</Version>
 	  <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
 	  <InformationalVersion>$(Version)</InformationalVersion>
@@ -34,7 +34,7 @@
   </ItemGroup>
 
   <ItemGroup>
-	  <PackageReference Include="PepperDashEssentials" Version="2.24.3">
+	  <PackageReference Include="PepperDashEssentials" Version="3.0.0">
 		  <ExcludeAssets>runtime</ExcludeAssets>
 	  </PackageReference> 
   </ItemGroup>
