@@ -41,7 +41,7 @@ public static class AssemblyFixture
         // Directory.GetFiles throw a less actionable DirectoryNotFoundException below.
         if (!File.Exists(PluginDllPath))
             throw new FileNotFoundException(
-                $"Plugin DLL not found at '{PluginDllPath}'. Build the plugin first.");
+                $"Plugin DLL not found at '{PluginDllPath}'. Build the plugin first.", PluginDllPath);
 
         // Priority 1: Plugin output dir (correct versions win)
         foreach (var dll in Directory.GetFiles(PluginOutputDir, "*.dll"))
@@ -66,7 +66,7 @@ public static class AssemblyFixture
     {
         // Honor NUGET_PACKAGES (common in CI / enterprise setups); fall back to the default.
         var nugetDir = Environment.GetEnvironmentVariable("NUGET_PACKAGES");
-        if (string.IsNullOrEmpty(nugetDir))
+        if (string.IsNullOrWhiteSpace(nugetDir))
             nugetDir = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
                 ".nuget", "packages");
@@ -101,7 +101,7 @@ public static class AssemblyFixture
     {
         if (!File.Exists(PluginDllPath))
             throw new FileNotFoundException(
-                $"Plugin DLL not found at '{PluginDllPath}'. Build the plugin first.");
+                $"Plugin DLL not found at '{PluginDllPath}'. Build the plugin first.", PluginDllPath);
         return Context.LoadFromAssemblyPath(PluginDllPath);
     }
 
