@@ -8,6 +8,17 @@ public static class AssemblyFixture
     private static readonly Lazy<MetadataLoadContext> LazyContext = new(CreateContext);
     private static readonly Lazy<Assembly> LazyAssembly = new(LoadPluginAssembly);
 
+    static AssemblyFixture()
+    {
+        // MetadataLoadContext is IDisposable; release file handles (and free the plugin DLLs for
+        // rebuilds) when the test process exits.
+        System.AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+        {
+            if (LazyContext.IsValueCreated)
+                LazyContext.Value.Dispose();
+        };
+    }
+
     private static string Configuration
     {
         get

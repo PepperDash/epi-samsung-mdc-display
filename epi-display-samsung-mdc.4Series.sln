@@ -7,7 +7,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "epi-display-samsung-mdc.4Se
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "epi-display-samsung-mdc.Tests", "tests\epi-display-samsung-mdc.Tests.csproj", "{83E57F8A-1AE7-4411-9AF6-04253F6B0237}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "epi-display-samsung-mdc.Tests", "tests\epi-display-samsung-mdc.Tests.csproj", "{83E57F8A-1AE7-4411-9AF6-04253F6B0237}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
