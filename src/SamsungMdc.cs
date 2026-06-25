@@ -1003,6 +1003,7 @@ namespace PepperDashPluginSamsungMdcDisplay
             WarmupTimer = new CTimer(
                 o =>
                 {
+                    WarmupTimer = null;
                     _isWarmingUp = false;
 
                     IsWarmingUpFeedback.FireUpdate();
@@ -1058,6 +1059,7 @@ namespace PepperDashPluginSamsungMdcDisplay
             CooldownTimer = new CTimer(
                 o =>
                 {
+                    CooldownTimer = null;
                     _isCoolingDown = false;
                     PowerIsOnFeedback.FireUpdate();
                     IsCoolingDownFeedback.FireUpdate();
