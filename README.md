@@ -91,37 +91,7 @@ This plugin was built using the Samsung SEC-VD-DSW Multiple Display Control docu
               "key": "magicInfo",
               "name": "Magic Info"
             }
-          ],
-		"friendlyNames": [
-			{
-				"inputKey": "hdmiIn1",
-				"name": "HDMI 1"
-			},
-			{
-				"inputKey": "hdmiIn2",
-				"name": "HDMI 2"
-			},
-			{
-				"inputKey": "hdmiIn3",
-				"name": "HDMI 3"
-			},
-			{
-				"inputKey": "hdmiIn4",
-				"name": "HDMI 4"
-			},
-			{
-				"inputKey": "displayPortIn1",
-				"name": "Display Port 1"
-			},
-			{
-				"inputKey": "displayPortIn2",
-				"name": "Display Port 2"
-			},
-			{
-				"inputKey": "dviIn",
-				"name": "DVI"
-			}
-		]
+          ]
 	}
 },
 ```
@@ -176,37 +146,7 @@ This plugin was built using the Samsung SEC-VD-DSW Multiple Display Control docu
               "key": "magicInfo",
               "name": "Magic Info"
             }
-          ],
-		"friendlyNames": [
-			{
-				"inputKey": "hdmiIn1",
-				"name": "HDMI 1"
-			},
-			{
-				"inputKey": "hdmiIn2",
-				"name": "HDMI 2"
-			},
-			{
-				"inputKey": "hdmiIn3",
-				"name": "HDMI 3"
-			},
-			{
-				"inputKey": "hdmiIn4",
-				"name": "HDMI 4"
-			},
-			{
-				"inputKey": "displayPortIn1",
-				"name": "Display Port 1"
-			},
-			{
-				"inputKey": "displayPortIn2",
-				"name": "Display Port 2"
-			},
-			{
-				"inputKey": "dviIn",
-				"name": "DVI"
-			}
-		]
+          ]
 	}
 },
 ```
