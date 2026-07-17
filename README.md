@@ -36,6 +36,14 @@ This plugin was built using the Samsung SEC-VD-DSW Multiple Display Control docu
 | Default IP | 192.168.0.10 |
 | Port       | 1515         |
 
+### Recommended Samsung OSD Setting
+
+To prevent visible flashing when the input is reasserted, disable the on-screen source info pop-up:
+
+- Menu -> OSD -> Message Display -> Source Info -> Off
+
+This disables the on-screen source pop-up that causes the visible flash when the input is reasserted.
+
 ## Example Configuration Object
 
 ### Display Object using RS-232
