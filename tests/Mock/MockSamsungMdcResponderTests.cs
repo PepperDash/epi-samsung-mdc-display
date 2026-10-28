@@ -489,6 +489,59 @@ public class MockSamsungMdcResponderTests
         SamsungMdcCommands.NakErrorCode(shortNak).Should().BeNull();
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Refused_Power_Set_Requeries_Power_Once(bool panelOn)
+    {
+        // The driver sets power optimistically; when the panel refuses, one power GET corrects it
+        // instead of waiting for the next status poll (30 s by default)
+        var driver = SiteDriver();
+        var panel = Panel(powerOn: panelOn);
+        Exchange(driver, panel, driver.StatusGet());
+        driver.PowerIsOn.Should().Be(panelOn);
+
+        panel.Fault = MockSamsungMdcFault.Ng;
+        Exchange(driver, panel, driver.SetPower(!panelOn));
+        driver.PowerIsOn.Should().Be(!panelOn, "optimistic until the panel answers");
+        driver.Sent.Should().ContainSingle().Which.Should().Equal(driver.PowerGet());
+
+        panel.Fault = MockSamsungMdcFault.None;
+        Exchange(driver, panel, driver.Sent.Single());
+        driver.PowerIsOn.Should().Be(panelOn);
+        driver.PowerSetPending.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Refused_Power_Query_Is_Not_Requeried()
+    {
+        // A model that refuses the power GET must not start a GET/NAK loop
+        var driver = SiteDriver();
+        var panel = Panel();
+        panel.Fault = MockSamsungMdcFault.Ng;
+
+        Exchange(driver, panel, driver.SetPower(false));
+        Exchange(driver, panel, driver.Sent.Single());
+
+        driver.Sent.Should().HaveCount(1);
+        driver.NaksReceived.Should().Be(2);
+    }
+
+    [Fact]
+    public void Accepted_Power_Set_Clears_The_Pending_Set()
+    {
+        var driver = SiteDriver();
+        var panel = Panel(powerOn: false);
+
+        Exchange(driver, panel, driver.SetPower(true));
+        driver.PowerSetPending.Should().BeFalse();
+
+        // A later refusal of a power query is not treated as a refused SET
+        panel.Fault = MockSamsungMdcFault.Ng;
+        Exchange(driver, panel, driver.PowerGet());
+        driver.Sent.Should().BeEmpty();
+    }
+
     [Fact]
     public void Repeated_Refusal_Is_Logged_Loudly_Once_Until_Accepted()
     {
