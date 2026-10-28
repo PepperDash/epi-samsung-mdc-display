@@ -436,33 +436,83 @@ public class MockSamsungMdcResponderTests
     }
 
     [Fact]
-    public void KnownBug_Second_Of_Two_Coalesced_Replies_Is_Dropped()
+    public void Coalesced_Replies_Are_All_Parsed()
     {
-        // TCP can deliver two replies in one read (e.g. status + LED monitoring when pollLedTemps is on).
-        // The driver parses the first frame and clears the buffer.
+        // TCP can deliver two replies in one read (e.g. status + LED monitoring when pollLedTemps is on)
         var driver = SiteDriver();
-        var panel = Panel();
+        var panel = Panel(configure: o => o.TemperatureC = 47);
         var both = panel.Respond(driver.StatusGet()).Single().Concat(panel.Respond(driver.LedProductMonitorGet()).Single()).ToArray();
 
         driver.BytesReceived(both);
 
-        driver.ParsedMessages.Should().HaveCount(1);
-        driver.LedTemperatureCelsius.Should().Be(0, "the LED monitoring reply was thrown away");
+        driver.ParsedMessages.Should().HaveCount(2);
+        driver.LedTemperatureCelsius.Should().Be(47);
+        driver.Buffered.Should().Be(0);
     }
 
     [Fact]
-    public void KnownBug_Echoed_Command_Ahead_Of_Reply_Loses_The_Reply()
+    public void Coalesced_Reply_Followed_By_Partial_Frame_Keeps_The_Partial()
     {
-        // Field condition PR #51 fixes (mock option "echoCommands"): the 5-byte GET echo is taken as a whole
-        // message and the buffer is cleared, so the real ACK in the same chunk is lost
+        var driver = SiteDriver();
+        var panel = Panel(configure: o => o.Input = "hdmi3");
+        var status = panel.Respond(driver.StatusGet()).Single();
+        var input = panel.Respond(driver.InputGet()).Single();
+
+        driver.BytesReceived(status.Concat(input.Take(4)).ToArray());
+        driver.ParsedMessages.Should().HaveCount(1);
+        driver.Buffered.Should().Be(4);
+
+        driver.CurrentInputNumber = 0;
+        driver.BytesReceived(input.Skip(4).ToArray());
+        driver.ParsedMessages.Should().HaveCount(2);
+        driver.CurrentInputNumber.Should().Be(3);
+        driver.Buffered.Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData(false)] // 5-byte GET echo
+    [InlineData(true)]  // 6-byte SET echo
+    public void Echoed_Command_Ahead_Of_Reply_Is_Dropped_And_The_Reply_Parsed(bool set)
+    {
+        // Field condition #51 fixes on main (mock option "echoCommands"): the command comes back ahead of its reply
         var driver = SiteDriver();
         var panel = Panel(configure: o => o.Volume = 55);
-        var get = driver.VolumeGet();
-        var chunk = get.Concat(panel.Respond(get).Single()).ToArray();
+        var command = set ? driver.SendVolumeCommand(32768) : driver.VolumeGet();
+        var reply = panel.Respond(command).Single();
 
-        driver.BytesReceived(chunk);
+        driver.BytesReceived(command.Concat(reply).ToArray());
 
-        driver.VolumeLevelForSig.Should().Be(0, "the ACK carrying volume 55 never reached the parser");
+        driver.IgnoredFrames.Should().ContainSingle().Which.Should().Equal(command);
+        driver.ParsedMessages.Should().ContainSingle().Which.Should().Equal(reply);
+        driver.VolumeLevelForSig.Should().Be((ushort)SamsungMdcDriverCopy.Scale(reply[6], 0, 99, 0, 65535));
+        driver.Exceptions.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Bad_Checksum_Reply_Is_Dropped_And_The_Next_Frame_Still_Parsed()
+    {
+        var driver = SiteDriver();
+        var panel = Panel();
+        var corrupt = panel.Respond(driver.MuteOn()).Single();
+        corrupt[corrupt.Length - 1] ^= 0x55;
+        var good = panel.Respond(driver.MuteGet()).Single();
+
+        driver.BytesReceived(corrupt.Concat(good).ToArray());
+
+        driver.ParsedMessages.Should().ContainSingle().Which.Should().Equal(good);
+        driver.IsMuted.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Noise_Before_A_Reply_Is_Skipped()
+    {
+        var driver = SiteDriver();
+        var reply = Panel(configure: o => o.Input = "hdmi2").Respond(driver.InputGet()).Single();
+
+        driver.BytesReceived(new byte[] { 0x00, 0x13, 0x0D, 0x0A }.Concat(reply).ToArray());
+
+        driver.CurrentInputNumber.Should().Be(2);
+        driver.Buffered.Should().Be(0);
     }
 
     // ---- Device info and LED monitoring ----

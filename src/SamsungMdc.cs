@@ -445,32 +445,29 @@ namespace PepperDashPluginSamsungMdcDisplay
                     this.LogDebug("Received new bytes:{0}", ComTextHelper.GetEscapedText(newBytes));
                 }
 
-                // Get data length
-                if (newBytes.Length >= 6)
-                {
-                    // check for header
+                var replies = new List<byte[]>();
+                var ignored = new List<byte[]>();
 
-                    // header + length + checksum
-                    var dataLength = 5 + newBytes[3];
-                    // Debug.Console(DebugLevelVerbose, this, "Got Data Length:{0} {1}", dataLength, newBytes[3]);
-                    if (newBytes.Length >= dataLength)
+                // Keep any trailing partial frame for the next receive event
+                _incomingBuffer = ExtractFrames(newBytes, replies, ignored);
+
+                foreach (var frame in ignored)
+                {
+                    this.LogVerbose("Ignoring non-reply frame (echoed command?): {frame}", ComTextHelper.GetEscapedText(frame));
+                }
+
+                // Parse every reply in the chunk; one bad frame must not cost the others
+                foreach (var reply in replies)
+                {
+                    try
                     {
-                        var message = new byte[dataLength];
-                        Array.Copy(newBytes, 0, message, 0, dataLength);
-                        ParseMessage(message);
-                        byte[] clear = { };
-                        _incomingBuffer = clear;
-                        return;
+                        ParseMessage(reply);
                     }
-                }
-                if (newBytes[0] == 0xAA)
-                {
-                    _incomingBuffer = newBytes;
-                }
-                else
-                {
-                    byte[] clear = { };
-                    _incomingBuffer = clear;
+                    catch (Exception ex)
+                    {
+                        this.LogError("Exception parsing feedback: {message}", ex.Message);
+                        this.LogDebug(ex, "Stack trace: ");
+                    }
                 }
             }
             catch (Exception ex)
@@ -478,6 +475,70 @@ namespace PepperDashPluginSamsungMdcDisplay
                 this.LogError("Exception parsing feedback: {message}", ex.Message);
                 this.LogDebug(ex, "Stack trace: ");
             }
+        }
+
+        /// <summary>
+        /// Cuts every complete MDC frame out of <paramref name="buffer"/>: resyncs on the 0xAA header, uses the
+        /// length byte for the frame size ([AA][cmd][id][len][data x len][cs]) and verifies the checksum.
+        /// Reply frames (cmd 0xFF) go to <paramref name="replies"/>; other valid frames, such as commands echoed
+        /// back by the link, go to <paramref name="ignored"/>. A header whose checksum fails is treated as noise
+        /// and the search resumes at the next byte.
+        /// </summary>
+        /// <returns>The unconsumed tail: a partial frame waiting for more bytes, or empty</returns>
+        internal static byte[] ExtractFrames(byte[] buffer, List<byte[]> replies, List<byte[]> ignored)
+        {
+            var index = 0;
+
+            while (true)
+            {
+                // Resync: skip anything before the next header
+                while (index < buffer.Length && buffer[index] != SamsungMdcCommands.Header)
+                {
+                    index++;
+                }
+
+                // Need header, cmd, id and length to know the frame size
+                if (buffer.Length - index < 4)
+                {
+                    break;
+                }
+
+                var frameLength = 5 + buffer[index + 3];
+                if (buffer.Length - index < frameLength)
+                {
+                    break;
+                }
+
+                var checksum = 0;
+                for (var i = index + 1; i < index + frameLength - 1; i++)
+                {
+                    checksum += buffer[i];
+                }
+
+                if ((byte)(checksum & 0xFF) != buffer[index + frameLength - 1])
+                {
+                    // Not a real frame start (or a corrupt frame): look for the next header
+                    index++;
+                    continue;
+                }
+
+                var frame = new byte[frameLength];
+                Array.Copy(buffer, index, frame, 0, frameLength);
+                index += frameLength;
+
+                if (frame[1] == SamsungMdcCommands.AckNak)
+                {
+                    replies.Add(frame);
+                }
+                else
+                {
+                    ignored.Add(frame);
+                }
+            }
+
+            var remainder = new byte[buffer.Length - index];
+            Array.Copy(buffer, index, remainder, 0, remainder.Length);
+            return remainder;
         }
 
         private void ParseMessage(byte[] message)
