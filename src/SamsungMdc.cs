@@ -826,6 +826,15 @@ namespace PepperDashPluginSamsungMdcDisplay
             };
         }
 
+        /// <summary>
+        /// Ramp step in 0-65535 units: one device step, rounded up, so every press moves the device at least
+        /// one level (and, with rounding both ways, never two)
+        /// </summary>
+        internal static int VolumeStep(int deviceRange)
+        {
+            return (int)Math.Ceiling(65535.0 / Math.Max(1, deviceRange));
+        }
+
         private void InitVolumeControls()
         {
             if (_upperLimit != _lowerLimit && _upperLimit > _lowerLimit)
@@ -833,33 +842,17 @@ namespace PepperDashPluginSamsungMdcDisplay
                 ScaleVolume = true;
             }
 
-            if (!ScaleVolume)
-            {
-                _volumeIncrementer = new ActionIncrementer(
-                    655,
-                    0,
-                    65535,
-                    800,
-                    80,
-                    v => SetVolumeInternal((ushort)v, skipDebounce: true),
-                    () => _lastVolumeSent
-                );
-            }
-            else
-            {
-                var scaleUpper = NumericalHelpers.Scale(_upperLimit, 0, 100, 0, 65535);
-                var scaleLower = NumericalHelpers.Scale(_lowerLimit, 0, 100, 0, 65535);
-
-                _volumeIncrementer = new ActionIncrementer(
-                    655,
-                    (int)scaleLower,
-                    (int)scaleUpper,
-                    800,
-                    80,
-                    v => SetVolumeInternal((ushort)v, skipDebounce: true),
-                    () => _lastVolumeSent
-                );
-            }
+            // The ramp works in 0-65535 like every other level; SendVolumeCommand maps that onto the
+            // device range (volumeLowerLimit-volumeUpperLimit, or 0-100), so the limits are applied once, there
+            _volumeIncrementer = new ActionIncrementer(
+                VolumeStep(ScaleVolume ? _upperLimit - _lowerLimit : 100),
+                0,
+                65535,
+                800,
+                80,
+                v => SetVolumeInternal((ushort)v, skipDebounce: true),
+                () => _lastVolumeSent
+            );
 
             VolumeLevelFeedback = new IntFeedback(() => _volumeLevelForSig);
             MuteFeedback = new BoolFeedback(() => _isMuted);
@@ -1749,15 +1742,18 @@ namespace PepperDashPluginSamsungMdcDisplay
         private void SendVolumeCommand(ushort level)
         {
             int scaled;
-            _lastVolumeSent = level;
             if (!ScaleVolume)
             {
-                scaled = (int)NumericalHelpers.Scale(level, 0, 65535, 0, 100);
+                scaled = (int)Math.Round(NumericalHelpers.Scale(level, 0, 65535, 0, 100), MidpointRounding.AwayFromZero);
             }
             else
             {
-                scaled = (int)NumericalHelpers.Scale(level, 0, 65535, _lowerLimit, _upperLimit);
+                scaled = (int)Math.Round(NumericalHelpers.Scale(level, 0, 65535, _lowerLimit, _upperLimit), MidpointRounding.AwayFromZero);
             }
+
+            // The level the device was actually sent, not the raw slider value, so a tap before the
+            // feedback arrives still moves exactly one device level
+            _lastVolumeSent = DeviceLevelToLevel(scaled);
 
             SendBytes(
                 new byte[]
@@ -1846,20 +1842,31 @@ namespace PepperDashPluginSamsungMdcDisplay
             _pollTimer = new CTimer(o => MuteGet(), null, 1000);
         }
 
+        /// <summary>
+        /// Rounds a scaled level to 0-65535. A device level outside volumeLowerLimit-volumeUpperLimit
+        /// (e.g. 100 with an upper limit of 99) scales outside that range and is clamped.
+        /// </summary>
+        internal static ushort ToLevel(double scaled)
+        {
+            return (ushort)Math.Max(0, Math.Min(65535, Math.Round(scaled, MidpointRounding.AwayFromZero)));
+        }
+
+        /// <summary>
+        /// A device volume level (0-100, or volumeLowerLimit-volumeUpperLimit) as a 0-65535 level
+        /// </summary>
+        private ushort DeviceLevelToLevel(int deviceLevel)
+        {
+            return ScaleVolume
+                ? ToLevel(NumericalHelpers.Scale(deviceLevel, _lowerLimit, _upperLimit, 0, 65535))
+                : ToLevel(NumericalHelpers.Scale(deviceLevel, 0, 100, 0, 65535));
+        }
+
         // <summary>
         // Volume feedback
         // </summary>
         private void UpdateVolumeFb(byte b)
         {
-            ushort newVol;
-            if (!ScaleVolume)
-            {
-                newVol = (ushort)NumericalHelpers.Scale(b, 0, 100, 0, 65535);
-            }
-            else
-            {
-                newVol = (ushort)NumericalHelpers.Scale(b, _lowerLimit, _upperLimit, 0, 65535);
-            }
+            var newVol = DeviceLevelToLevel(b);
             if (!_volumeIsRamping)
             {
                 _lastVolumeSent = newVol;

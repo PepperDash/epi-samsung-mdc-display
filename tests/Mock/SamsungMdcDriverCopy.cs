@@ -108,14 +108,43 @@ internal sealed class SamsungMdcDriverCopy
         int scaled;
         if (!ScaleVolume)
         {
-            scaled = (int)Scale(level, 0, 65535, 0, 100);
+            scaled = (int)Math.Round(Scale(level, 0, 65535, 0, 100), MidpointRounding.AwayFromZero);
         }
         else
         {
-            scaled = (int)Scale(level, 0, 65535, _lowerLimit, _upperLimit);
+            scaled = (int)Math.Round(Scale(level, 0, 65535, _lowerLimit, _upperLimit), MidpointRounding.AwayFromZero);
         }
 
+        LastVolumeSent = DeviceLevelToLevel(scaled);
         return Format(new byte[] { Header, VolumeControl, 0x00, 0x01, Convert.ToByte(scaled), 0x00 });
+    }
+
+    /// <summary>_lastVolumeSent: where the next tap starts (feedback outside a ramp, or the level last sent)</summary>
+    public ushort LastVolumeSent { get; private set; }
+
+    /// <summary>DeviceLevelToLevel, verbatim</summary>
+    private ushort DeviceLevelToLevel(int deviceLevel)
+    {
+        return ScaleVolume
+            ? ToLevel(Scale(deviceLevel, _lowerLimit, _upperLimit, 0, 65535))
+            : ToLevel(Scale(deviceLevel, 0, 100, 0, 65535));
+    }
+
+    /// <summary>InitVolumeControls: the ramp's step and limits, in 0-65535 units</summary>
+    public int RampStep => VolumeStep(ScaleVolume ? _upperLimit - _lowerLimit : 100);
+    public const int RampMin = 0;
+    public const int RampMax = 65535;
+
+    /// <summary>VolumeStep, verbatim</summary>
+    internal static int VolumeStep(int deviceRange)
+    {
+        return (int)Math.Ceiling(65535.0 / Math.Max(1, deviceRange));
+    }
+
+    /// <summary>ToLevel, verbatim</summary>
+    internal static ushort ToLevel(double scaled)
+    {
+        return (ushort)Math.Max(0, Math.Min(65535, Math.Round(scaled, MidpointRounding.AwayFromZero)));
     }
 
     /// <summary>SetInput(int) guard: the 1-based input numbers it accepts</summary>
@@ -340,15 +369,8 @@ internal sealed class SamsungMdcDriverCopy
 
     private void UpdateVolumeFb(byte b)
     {
-        ushort newVol;
-        if (!ScaleVolume)
-        {
-            newVol = (ushort)Scale(b, 0, 100, 0, 65535);
-        }
-        else
-        {
-            newVol = (ushort)Scale(b, _lowerLimit, _upperLimit, 0, 65535);
-        }
+        var newVol = DeviceLevelToLevel(b);
+        LastVolumeSent = newVol; // not ramping
         VolumeLevelForSig = newVol;
     }
 

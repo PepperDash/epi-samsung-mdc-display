@@ -263,7 +263,7 @@ public class MockSamsungMdcResponderTests
             if (reply[4] != MockSamsungMdcResponder.Ack) { naks++; continue; }
 
             levelsReached.Add(reply[6]);
-            var expectedFeedback = (ushort)SamsungMdcDriverCopy.Scale(sent, bottom, top, 0, 65535);
+            var expectedFeedback = SamsungMdcDriverCopy.ToLevel(SamsungMdcDriverCopy.Scale(sent, bottom, top, 0, 65535));
             if (driver.VolumeLevelForSig != expectedFeedback) feedbackMismatch++;
         }
 
@@ -277,12 +277,12 @@ public class MockSamsungMdcResponderTests
     }
 
     [Theory]
-    [InlineData(0, 99, 96)]
-    [InlineData(0, 0, 95)]
-    public void KnownBug_Volume_Feedback_Echoed_Back_Drifts_Down(int lower, int upper, int expectedDrifting)
+    [InlineData(0, 99)]
+    [InlineData(0, 0)]
+    [InlineData(20, 80)]
+    public void Volume_Feedback_Echoed_Back_Does_Not_Drift(int lower, int upper)
     {
-        // A UI that sends back the level it was given (e.g. a slider re-sent unchanged) moves the panel down a step,
-        // because both directions truncate instead of rounding
+        // A UI that sends back the level it was given (e.g. a slider re-sent unchanged) must leave the panel alone
         var driver = new SamsungMdcDriverCopy(SiteId, lower, upper);
         var top = upper > lower ? upper : 100;
         var bottom = upper > lower ? lower : 0;
@@ -296,47 +296,98 @@ public class MockSamsungMdcResponderTests
             if (reply[6] != v) drifting.Add(v);
         }
 
-        output.WriteLine($"limits {lower}-{upper}: {drifting.Count} levels drift: {string.Join(",", drifting.Take(20))}...");
-        drifting.Should().HaveCount(expectedDrifting);
+        output.WriteLine($"limits {lower}-{upper}: {drifting.Count} of {top - bottom + 1} levels drift");
+        drifting.Should().BeEmpty();
     }
 
     [Theory]
     [InlineData(0, 99)]
     [InlineData(0, 0)]
-    public void KnownBug_Single_Volume_Up_Tap_Never_Changes_Level(int lower, int upper)
+    [InlineData(20, 80)]
+    public void Single_Volume_Tap_Moves_Exactly_One_Step(int lower, int upper)
     {
-        // ActionIncrementer.Go: first step = _lastVolumeSent (feedback level) + 655, sent through SendVolumeCommand
+        // ActionIncrementer.Go: first step = _lastVolumeSent (feedback level) +/- step, clamped to the ramp limits,
+        // then sent through SendVolumeCommand
         var driver = new SamsungMdcDriverCopy(SiteId, lower, upper);
         var top = upper > lower ? upper : 100;
         var bottom = upper > lower ? lower : 0;
-        var unchanged = 0;
+        var wrongUp = 0;
+        var wrongDown = 0;
 
-        for (var v = bottom; v < top; v++)
+        for (var v = bottom; v <= top; v++)
         {
-            var panel = Panel(configure: o => o.Volume = v);
-            Exchange(driver, panel, driver.VolumeGet());
-            var next = Math.Min(65535, driver.VolumeLevelForSig + 655);
-            var reply = Exchange(driver, panel, driver.SendVolumeCommand((ushort)next)).Single();
-            if (reply[6] == v) unchanged++;
+            foreach (var direction in new[] { 1, -1 })
+            {
+                var panel = Panel(configure: o => o.Volume = v);
+                Exchange(driver, panel, driver.VolumeGet());
+                var next = Math.Max(SamsungMdcDriverCopy.RampMin,
+                    Math.Min(SamsungMdcDriverCopy.RampMax, driver.VolumeLevelForSig + direction * driver.RampStep));
+                var reply = Exchange(driver, panel, driver.SendVolumeCommand((ushort)next)).Single();
+                var expected = Math.Max(bottom, Math.Min(top, v + direction));
+                if (reply[6] != expected)
+                {
+                    if (direction > 0) wrongUp++; else wrongDown++;
+                }
+            }
         }
 
-        output.WriteLine($"limits {lower}-{upper}: a single up tap leaves {unchanged} of {top - bottom} levels unchanged");
-        unchanged.Should().Be(top - bottom);
+        output.WriteLine($"limits {lower}-{upper}: step {driver.RampStep}, taps off by one: up {wrongUp}, down {wrongDown}");
+        wrongUp.Should().Be(0);
+        wrongDown.Should().Be(0);
     }
 
     [Theory]
-    [InlineData(0, 99, 0, 98)]
-    [InlineData(20, 80, 32, 68)]
-    public void KnownBug_Volume_Ramp_Limits_Are_Scaled_Twice(int lower, int upper, int expectedMin, int expectedMax)
+    [InlineData(0, 99)]
+    [InlineData(0, 0)]
+    [InlineData(20, 80)]
+    public void Tap_Before_Slider_Feedback_Moves_Exactly_One_Step(int lower, int upper)
     {
-        // InitVolumeControls scales the limits into 0-65535 for the incrementer, then SendVolumeCommand
-        // scales 0-65535 into lower-upper again
-        var driver = new SamsungMdcDriverCopy(SiteId, lower, upper);
-        var rampMin = (int)SamsungMdcDriverCopy.Scale(lower, 0, 100, 0, 65535);
-        var rampMax = (int)SamsungMdcDriverCopy.Scale(upper, 0, 100, 0, 65535);
+        // A slider level, then a tap before the panel's feedback arrives: the tap starts from
+        // _lastVolumeSent, which must be the level the device was sent, not the raw slider value
+        // (0-100: slider 983 sends 1; 983 + 656 = 1639 would send 3)
+        var top = upper > lower ? upper : 100;
+        var bottom = upper > lower ? lower : 0;
+        var wrong = new List<string>();
 
-        driver.SendVolumeCommand((ushort)rampMin)[4].Should().Be((byte)expectedMin);
-        driver.SendVolumeCommand((ushort)rampMax)[4].Should().Be((byte)expectedMax);
+        for (var slider = 0; slider <= 65535; slider += 7)
+        {
+            foreach (var direction in new[] { 1, -1 })
+            {
+                var driver = new SamsungMdcDriverCopy(SiteId, lower, upper);
+                int sent = driver.SendVolumeCommand((ushort)slider)[4];
+                var next = Math.Max(SamsungMdcDriverCopy.RampMin,
+                    Math.Min(SamsungMdcDriverCopy.RampMax, driver.LastVolumeSent + direction * driver.RampStep));
+                int tapped = driver.SendVolumeCommand((ushort)next)[4];
+                var expected = Math.Max(bottom, Math.Min(top, sent + direction));
+                if (tapped != expected) wrong.Add($"{slider}{(direction > 0 ? "+" : "-")}: {sent} -> {tapped}");
+            }
+        }
+
+        output.WriteLine($"limits {lower}-{upper}: {wrong.Count} taps off; first: {string.Join(", ", wrong.Take(3))}");
+        wrong.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(0, 99)]
+    [InlineData(20, 80)]
+    [InlineData(0, 0)]
+    public void Volume_Ramp_Reaches_Exactly_The_Configured_Limits(int lower, int upper)
+    {
+        var driver = new SamsungMdcDriverCopy(SiteId, lower, upper);
+        var top = upper > lower ? upper : 100;
+        var bottom = upper > lower ? lower : 0;
+
+        driver.SendVolumeCommand(SamsungMdcDriverCopy.RampMin)[4].Should().Be((byte)bottom);
+        driver.SendVolumeCommand(SamsungMdcDriverCopy.RampMax)[4].Should().Be((byte)top);
+    }
+
+    [Fact]
+    public void Panel_Level_Above_The_Upper_Limit_Clamps_Feedback()
+    {
+        // volumeUpperLimit 99 but the panel is at 100 (set at the panel): feedback is full scale, not a wrapped value
+        var driver = SiteDriver();
+        Exchange(driver, Panel(configure: o => o.Volume = 100), driver.VolumeGet());
+        driver.VolumeLevelForSig.Should().Be(65535);
     }
 
     [Fact]
