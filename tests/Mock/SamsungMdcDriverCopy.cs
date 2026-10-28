@@ -93,6 +93,10 @@ internal sealed class SamsungMdcDriverCopy
         PowerBeforeSet = PowerIsOn;
         PowerIsOn = on;
         PowerSetPending = true;
+        if (!on)
+        {
+            CurrentInputNumber = 0; // PowerOff clears the input optimistically too
+        }
         return on ? PowerOn() : PowerOff();
     }
 

@@ -515,6 +515,42 @@ public class MockSamsungMdcResponderTests
     }
 
     [Fact]
+    public void Status_Requery_Restores_The_Input_A_Refused_PowerOff_Cleared()
+    {
+        // An optimistic PowerOff clears the input; a power-only re-query would leave it cleared
+        var driver = SiteDriver();
+        var panel = Panel(powerOn: true, configure: o => o.Input = "hdmi2");
+        Exchange(driver, panel, driver.StatusGet());
+        driver.CurrentInputNumber.Should().Be(2);
+
+        panel.Fault = MockSamsungMdcFault.Ng;
+        Exchange(driver, panel, driver.SetPower(false));
+        driver.CurrentInputNumber.Should().Be(0, "cleared by the optimistic PowerOff");
+
+        panel.Fault = MockSamsungMdcFault.None;
+        Exchange(driver, panel, driver.Sent.Single());
+        driver.PowerIsOn.Should().BeTrue();
+        driver.CurrentInputNumber.Should().Be(2, "the status reply brings the input back");
+    }
+
+    [Fact]
+    public void Status_Requery_Leaves_The_Input_Cleared_When_The_Panel_Is_Off()
+    {
+        // A refused PowerOn on a panel that stays off: the status reply reports off, so no input
+        var driver = SiteDriver();
+        var panel = Panel(powerOn: false, configure: o => o.Input = "hdmi2");
+        Exchange(driver, panel, driver.StatusGet());
+
+        panel.Fault = MockSamsungMdcFault.Ng;
+        Exchange(driver, panel, driver.SetPower(true));
+
+        panel.Fault = MockSamsungMdcFault.None;
+        Exchange(driver, panel, driver.Sent.Single());
+        driver.PowerIsOn.Should().BeFalse();
+        driver.CurrentInputNumber.Should().Be(0);
+    }
+
+    [Fact]
     public void Refused_Requery_Is_Not_Repeated_And_Keeps_The_Restored_State()
     {
         // A model that refuses the query too must not start a GET/NAK loop, and the restored state
