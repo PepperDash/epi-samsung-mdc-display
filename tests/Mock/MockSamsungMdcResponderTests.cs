@@ -598,31 +598,37 @@ public class MockSamsungMdcResponderTests
         driver.SerialNumber.Should().StartWith("ABC123");
     }
 
-    [Fact]
-    public void KnownBug_Software_Version_Parse_Overruns_The_Frame()
+    [Theory]
+    [InlineData("MOCKPROJECT0MOCK-1000.0", "MOCK-1000.0")] // 12 bytes of project info, then the version
+    [InlineData("SHORTVER", "SHORTVER")]                  // 12 bytes or fewer: the whole string
+    public void Software_Version_Reaches_The_Driver(string reported, string expected)
     {
-        // Array.Copy(message, 6, firmware, 0, message[3]) copies DATA_LEN bytes from offset 6, two past the end
         var driver = SiteDriver();
-        Exchange(driver, Panel(), driver.UpdateDeviceInfo()[1]);
-        driver.FirmwareVersion.Should().BeNull();
-        driver.Exceptions.Should().ContainSingle().Which.Should().BeOfType<ArgumentException>();
+        Exchange(driver, Panel(configure: o => o.SoftwareVersion = reported), driver.UpdateDeviceInfo()[1]);
+        driver.FirmwareVersion.Should().Be(expected);
+        driver.Exceptions.Should().BeEmpty();
     }
 
     [Fact]
-    public void KnownBug_Network_And_Mac_Queries_Use_Sub_Command_As_Command()
+    public void Device_Info_Sends_Only_Spec_Frames_And_Network_Info_Reaches_The_Driver()
     {
-        // UpdateDeviceInfo sends AA 82 .. and AA 81 .. ; the spec query is AA 1B id 01 82 cs (0x81 isn't in v14.4c)
         var driver = SiteDriver();
-        var panel = Panel();
+        var panel = Panel(configure: o => o.IpAddress = "10.1.2.3");
         var frames = driver.UpdateDeviceInfo();
-        frames[2][1].Should().Be(0x82);
-        frames[3][1].Should().Be(0x81);
-        panel.Respond(frames[2]).Should().BeEmpty();
-        panel.Respond(frames[3]).Should().BeEmpty();
 
-        // Even the spec frame wouldn't land: the parser checks message[4] (the 'A') for the sub-command
-        Exchange(driver, panel, MockSamsungMdcResponder.Command(0x1B, SiteId, 0x82)).Single()[6].Should().Be(0x82);
-        driver.IpAddress.Should().BeNull();
+        // Serial (0x0B), SW version (0x0E), network config (0x1B sub 0x82); no MAC query (not in v14.4c)
+        frames.Select(f => f[1]).Should().Equal(0x0B, 0x0E, 0x1B);
+        frames[2].Should().Equal(MockSamsungMdcResponder.Command(0x1B, SiteId, 0x82));
+
+        foreach (var frame in frames)
+        {
+            Exchange(driver, panel, frame).Should().ContainSingle(frame.ToString());
+        }
+
+        driver.IpAddress.Should().Be("10.1.2.3");
+        driver.SerialNumber.Should().StartWith("MOCK0SAMSUNG000");
+        driver.FirmwareVersion.Should().Be("MOCK-1000.0");
+        driver.Exceptions.Should().BeEmpty();
     }
 
     // ---- Panel-side changes ----
