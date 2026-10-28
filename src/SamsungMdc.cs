@@ -97,7 +97,7 @@ namespace PepperDashPluginSamsungMdcDisplay
 
         public void SetInput(int value)
         {
-            if (value <= 0 || value >= InputPorts.Count)
+            if (value <= 0 || value > InputPorts.Count)
                 return;
 
             // -1 to get actual input after'0d' check
@@ -594,7 +594,12 @@ namespace PepperDashPluginSamsungMdcDisplay
                         UpdatePowerFb(message[6]);
                         UpdateVolumeFb(message[7]);
                         UpdateMuteFb(message[8]);
-                        UpdateInputFb(message[9]);
+                        // While off, UpdatePowerFb has just cleared the input; the panel still reports its
+                        // last source, which must not bring the input feedback back
+                        if (message[6] == SamsungMdcCommands.PowerOn)
+                        {
+                            UpdateInputFb(message[9]);
+                        }
                         if (Debug.Level == 2)
                         {
                             // This check is here to prevent following string format from building unnecessarily on level 0 or 1
@@ -950,10 +955,10 @@ namespace PepperDashPluginSamsungMdcDisplay
                         "usb",
                         eRoutingSignalType.Audio | eRoutingSignalType.Video,
                         eRoutingPortConnectionType.Streaming,
-                        null,
+                        new Action(InputInternalUsb),
                         this
                     ),
-                    0x99
+                    SamsungMdcCommands.InputInternalUsb
                 );
             }
             else
@@ -1344,6 +1349,13 @@ namespace PepperDashPluginSamsungMdcDisplay
                             new SamsungInput("magicInfo", "Magic Info", this, InputMagicInfo)
                         )
                     },
+                    {
+                        "usb",
+                        new KeyValuePair<byte, SamsungInput>(
+                            SamsungMdcCommands.InputInternalUsb,
+                            new SamsungInput("usb", "USB", this, InputInternalUsb)
+                        )
+                    },
                 };
 
                 foreach (var activeInput in activeInputsMap)
@@ -1409,6 +1421,10 @@ namespace PepperDashPluginSamsungMdcDisplay
                         {
                             SamsungMdcCommands.InputMagicInfo,
                             new SamsungInput("magicInfo", "Magic Info", this, InputMagicInfo)
+                        },
+                        {
+                            SamsungMdcCommands.InputInternalUsb,
+                            new SamsungInput("usb", "USB", this, InputInternalUsb)
                         },
                     },
                 };
@@ -1568,6 +1584,25 @@ namespace PepperDashPluginSamsungMdcDisplay
         }
 
         /// <summary>
+        /// Input Internal/USB (Cmd: 0x14), spec 2.1.14
+        /// Set: [HEADER=0xAA][Cmd=0x14][ID][DATA_LEN=0x01][DATA-1=0x62][CS=0x00]
+        /// </summary>
+        public void InputInternalUsb()
+        {
+            SendBytes(
+                new byte[]
+                {
+                    SamsungMdcCommands.Header,
+                    SamsungMdcCommands.InputSourceControl,
+                    0x00,
+                    0x01,
+                    SamsungMdcCommands.InputInternalUsb,
+                    0x00,
+                }
+            );
+        }
+
+        /// <summary>
         /// Input HDMI 1 (Cmd: 0x14) pdf page 426
         /// Get: [HEADER=0xAA][Cmd=0x14][ID][DATA_LEN=0x00][CS=0x00]
         /// </summary>
@@ -1608,8 +1643,34 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// <summary>
         /// Input feedback
         /// </summary>
+        /// <summary>
+        /// HDMI with a PC signal reports a "get only" code (spec 2.1.14): HDMIx_PC -> HDMIx
+        /// </summary>
+        internal static byte HdmiPortForPcCode(byte b)
+        {
+            switch (b)
+            {
+                case SamsungMdcCommands.InputHdmi1Pc:
+                    return SamsungMdcCommands.InputHdmi1;
+                case SamsungMdcCommands.InputHdmi2Pc:
+                    return SamsungMdcCommands.InputHdmi2;
+                case SamsungMdcCommands.InputHdmi3Pc:
+                    return SamsungMdcCommands.InputHdmi3;
+                case SamsungMdcCommands.InputHdmi4Pc:
+                    return SamsungMdcCommands.InputHdmi4;
+                default:
+                    return b;
+            }
+        }
+
         private void UpdateInputFb(byte b)
         {
+            // An exact match wins (e.g. a custom input defined on a PC code); otherwise report HDMIx_PC as HDMIx
+            if (!InputPorts.Any(i => i.FeedbackMatchObject.Equals(b)))
+            {
+                b = HdmiPortForPcCode(b);
+            }
+
             var newInput = InputPorts.FirstOrDefault(i => i.FeedbackMatchObject.Equals(b));
 
             if (newInput == null)
@@ -1638,12 +1699,11 @@ namespace PepperDashPluginSamsungMdcDisplay
 
             CurrentInputNumber = inputIndex;
 
-            if (Inputs.Items.ContainsKey(b))
+            // A source that is not a selectable input (e.g. left out by activeInputs) deselects them all,
+            // so the previous input is not left marked selected
+            foreach (var item in Inputs.Items)
             {
-                foreach (var item in Inputs.Items)
-                {
-                    item.Value.IsSelected = item.Key.Equals(b);
-                }
+                item.Value.IsSelected = item.Key.Equals(b);
             }
 
             Inputs.CurrentItem = b;

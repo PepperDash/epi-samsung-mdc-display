@@ -23,12 +23,12 @@ internal sealed class SamsungMdcDriverCopy
 
     /// <summary>
     /// Default routing ports (no customInputs), in InitInputPortsAndFeedbacks order: key and FeedbackMatchObject.
-    /// "usb" has a null selector.
+    /// "usb" is Internal/USB (0x62).
     /// </summary>
     public static readonly (string Key, byte Code)[] DefaultPorts =
     {
         ("hdmiIn1", 0x21), ("hdmiIn2", 0x23), ("hdmiIn3", 0x31), ("hdmiIn4", 0x33),
-        ("displayPortIn1", 0x25), ("displayPortIn2", 0x26), ("dviIn", 0x18), ("mediaPlayer", 0x20), ("usb", 0x99),
+        ("displayPortIn1", 0x25), ("displayPortIn2", 0x26), ("dviIn", 0x18), ("mediaPlayer", 0x20), ("usb", 0x62),
     };
 
     private readonly int _lowerLimit;
@@ -155,7 +155,7 @@ internal sealed class SamsungMdcDriverCopy
     }
 
     /// <summary>SetInput(int) guard: the 1-based input numbers it accepts</summary>
-    public static bool SetInputAccepts(int value, int inputPortCount) => !(value <= 0 || value >= inputPortCount);
+    public static bool SetInputAccepts(int value, int inputPortCount) => !(value <= 0 || value > inputPortCount);
 
     // ---- Receiving ----
 
@@ -288,7 +288,10 @@ internal sealed class SamsungMdcDriverCopy
                 UpdatePowerFb(message[6]);
                 UpdateVolumeFb(message[7]);
                 UpdateMuteFb(message[8]);
-                UpdateInputFb(message[9]);
+                if (message[6] == 0x01)
+                {
+                    UpdateInputFb(message[9]);
+                }
                 break;
             case PowerControl:
                 UpdatePowerFb(message[6]);
@@ -387,8 +390,31 @@ internal sealed class SamsungMdcDriverCopy
         IsMuted = b == 1;
     }
 
+    /// <summary>HdmiPortForPcCode, verbatim</summary>
+    internal static byte HdmiPortForPcCode(byte b)
+    {
+        switch (b)
+        {
+            case 0x22:
+                return 0x21;
+            case 0x24:
+                return 0x23;
+            case 0x32:
+                return 0x31;
+            case 0x34:
+                return 0x33;
+            default:
+                return b;
+        }
+    }
+
     private void UpdateInputFb(byte b)
     {
+        if (!DefaultPorts.Any(p => p.Code.Equals(b)))
+        {
+            b = HdmiPortForPcCode(b);
+        }
+
         var index = Array.FindIndex(DefaultPorts, p => p.Code.Equals(b));
         if (index < 0)
             return;

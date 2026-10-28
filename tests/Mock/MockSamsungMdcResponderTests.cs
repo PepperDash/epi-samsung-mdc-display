@@ -172,15 +172,13 @@ public class MockSamsungMdcResponderTests
     // ---- Inputs ----
 
     [Fact]
-    public void Every_Selectable_Driver_Input_Round_Trips()
+    public void Every_Driver_Input_Round_Trips()
     {
         var driver = SiteDriver();
         var panel = Panel();
         var mismatches = 0;
 
-        // The "usb" port has no selector, so the driver can't select it
-        var selectable = SamsungMdcDriverCopy.DefaultPorts.Where(p => p.Key != "usb").ToArray();
-        foreach (var port in selectable)
+        foreach (var port in SamsungMdcDriverCopy.DefaultPorts)
         {
             var expected = Array.IndexOf(SamsungMdcDriverCopy.DefaultPorts, port) + 1;
 
@@ -199,42 +197,57 @@ public class MockSamsungMdcResponderTests
             }
         }
 
-        output.WriteLine($"Inputs swept: {selectable.Length}, mismatches: {mismatches}");
+        output.WriteLine($"Inputs swept: {SamsungMdcDriverCopy.DefaultPorts.Length}, mismatches: {mismatches}");
         mismatches.Should().Be(0);
     }
 
     [Theory]
     [InlineData(0x22)] // HDMI1_PC: get only
-    [InlineData(0x99)] // not an MDC input code (the driver's "usb" port)
+    [InlineData(0x99)] // not an MDC input code (what the driver used for "usb" before)
     public void Set_Input_With_Get_Only_Or_Unknown_Code_Is_Nakd(byte code)
     {
         Panel().Respond(SiteDriver().InputGeneric(code)).Single()[4].Should().Be(MockSamsungMdcResponder.Nak);
     }
 
-    [Fact]
-    public void KnownBug_Hdmi_Pc_Variant_And_Internal_Usb_Are_Not_Recognised()
+    [Theory]
+    [InlineData("hdmi1Pc", 1)]
+    [InlineData("hdmi2Pc", 2)]
+    [InlineData("hdmi3Pc", 3)]
+    [InlineData("hdmi4Pc", 4)]
+    [InlineData("internalUsb", 9)]
+    public void Hdmi_Pc_Variants_And_Internal_Usb_Map_To_Their_Ports(string reported, int expectedInput)
     {
-        // A panel on HDMI1 with a PC signal reports 0x22 (spec 2.1.14: get-only code); Internal/USB is 0x62.
-        // The driver only matches 0x21 / 0x99, so its input feedback goes stale.
-        foreach (var reported in new[] { "hdmi1Pc", "internalUsb" })
-        {
-            var driver = SiteDriver();
-            var panel = Panel();
-            panel.SetInput(reported).Should().BeTrue();
+        // A panel on HDMI with a PC signal reports HDMIx_PC (spec 2.1.14: get-only codes)
+        var driver = SiteDriver();
+        var panel = Panel();
+        panel.SetInput(reported).Should().BeTrue();
 
-            driver.CurrentInputNumber = 5;
-            Exchange(driver, panel, driver.StatusGet());
-            driver.CurrentInputNumber.Should().Be(5, $"{reported} matches no routing port");
-        }
+        Exchange(driver, panel, driver.StatusGet());
+        driver.CurrentInputNumber.Should().Be(expectedInput);
     }
 
     [Fact]
-    public void KnownBug_SetInput_Rejects_The_Last_Input_Number()
+    public void SetInput_Accepts_Every_Input_Number()
     {
-        // SetInput(int) bails on value >= InputPorts.Count, so the last port can never be picked by number
         var count = SamsungMdcDriverCopy.DefaultPorts.Length;
-        SamsungMdcDriverCopy.SetInputAccepts(count - 1, count).Should().BeTrue();
-        SamsungMdcDriverCopy.SetInputAccepts(count, count).Should().BeFalse();
+        SamsungMdcDriverCopy.SetInputAccepts(0, count).Should().BeFalse();
+        SamsungMdcDriverCopy.SetInputAccepts(1, count).Should().BeTrue();
+        SamsungMdcDriverCopy.SetInputAccepts(count, count).Should().BeTrue();
+        SamsungMdcDriverCopy.SetInputAccepts(count + 1, count).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Status_Poll_While_Off_Leaves_The_Input_Cleared()
+    {
+        // The panel still reports its last source while off; that must not restore the input feedback
+        var driver = SiteDriver();
+        var panel = Panel(powerOn: false, o => o.Input = "hdmi2");
+        driver.CurrentInputNumber = 2;
+
+        Exchange(driver, panel, driver.StatusGet());
+
+        driver.PowerIsOn.Should().BeFalse();
+        driver.CurrentInputNumber.Should().Be(0);
     }
 
     // ---- Volume and mute ----

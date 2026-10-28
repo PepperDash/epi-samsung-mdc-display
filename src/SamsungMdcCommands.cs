@@ -200,6 +200,11 @@
         public const byte InputHdBaseT1 = 0x55;
 
         /// <summary>
+        /// 2.1.14 Input source control - Internal/USB
+        /// </summary>
+        public const byte InputInternalUsb = 0x62;
+
+        /// <summary>
         /// 2.1.15 Picture size control (Cmd: 0x15)
         /// Gets/sets the picture size state
         /// </summary>
