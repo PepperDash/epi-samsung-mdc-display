@@ -21,6 +21,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The mock panel's protocol code has no Crestron/PepperDash types, so it compiles straight into the tests -->
+    <Compile Include="..\src\Mock\MockSamsungMdcResponder.cs" Link="Mock\Linked\MockSamsungMdcResponder.cs" />
+    <Compile Include="..\src\Mock\MockSamsungMdcOptions.cs" Link="Mock\Linked\MockSamsungMdcOptions.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Builds the plugin before tests run; DLL is loaded via MetadataLoadContext, not referenced. -->
     <ProjectReference Include="..\src\epi-display-samsung-mdc.4Series.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>

@@ -1,0 +1,517 @@
+using FluentAssertions;
+using Xunit;
+using Xunit.Abstractions;
+
+namespace PepperDashPluginSamsungMdcDisplay.Tests.Mock;
+
+/// <summary>
+/// Runs the mock panel against the driver's own formatting and parsing (SamsungMdcDriverCopy).
+/// Tests named KnownBug_* pin current driver behaviour that disagrees with the MDC spec; when the
+/// driver is fixed they fail on purpose, and should be flipped to assert the fixed behaviour.
+/// </summary>
+public class MockSamsungMdcResponderTests
+{
+    private const byte SiteId = 0x00; // "id": "00" in the site config
+    private readonly ITestOutputHelper output;
+
+    public MockSamsungMdcResponderTests(ITestOutputHelper output)
+    {
+        this.output = output;
+    }
+
+    private static MockSamsungMdcResponder Panel(bool powerOn = true, Action<MockSamsungMdcOptions>? configure = null)
+    {
+        var options = new MockSamsungMdcOptions { PowerOn = powerOn };
+        configure?.Invoke(options);
+        return new MockSamsungMdcResponder(SiteId, options);
+    }
+
+    private static SamsungMdcDriverCopy SiteDriver() => new(SiteId, volumeLowerLimit: 0, volumeUpperLimit: 99);
+
+    // One receive event per reply frame, like MockSamsungMdcCommunication
+    private static IList<byte[]> Exchange(SamsungMdcDriverCopy driver, MockSamsungMdcResponder panel, byte[] command)
+    {
+        var replies = panel.Respond(command);
+        foreach (var reply in replies) driver.BytesReceived(reply);
+        return replies;
+    }
+
+    private static string Hex(byte[] bytes) => string.Join(" ", bytes.Select(b => b.ToString("X2")));
+
+    // ---- Framing, checksum, ID ----
+
+    [Fact]
+    public void Driver_Frames_Have_Valid_Checksums_And_Lengths()
+    {
+        var driver = SiteDriver();
+        var frames = new[]
+        {
+            driver.StatusGet(), driver.PowerOn(), driver.PowerOff(), driver.PowerGet(), driver.InputGet(),
+            driver.VolumeGet(), driver.MuteOn(), driver.MuteOff(), driver.MuteGet(), driver.LedProductMonitorGet(),
+            driver.InputGeneric(0x21), driver.SendVolumeCommand(32768),
+        };
+
+        foreach (var frame in frames)
+        {
+            MockSamsungMdcResponder.FrameLength(frame).Should().Be(frame.Length, Hex(frame));
+            frame[frame.Length - 1].Should().Be(MockSamsungMdcResponder.Checksum(frame, frame.Length - 1), Hex(frame));
+        }
+    }
+
+    [Fact]
+    public void Spec_Examples_Match_Checksum()
+    {
+        // Spec 1.2.1: power on to ID 0xFE checksums to 0x11 (0x11 + 0xFE + 0x01 + 0x01 = 0x111)
+        MockSamsungMdcResponder.Command(0x11, 0xFE, 0x01).Should().Equal(0xAA, 0x11, 0xFE, 0x01, 0x01, 0x11);
+        // Spec 2.1.11: power off to ID 1 is AA 11 01 01 00 13 (the spec's own example drops the length byte)
+        MockSamsungMdcResponder.Command(0x11, 0x01, 0x00).Should().Equal(0xAA, 0x11, 0x01, 0x01, 0x00, 0x13);
+    }
+
+    [Fact]
+    public void Status_Ack_Is_Spec_Layout()
+    {
+        var panel = Panel(configure: o => { o.Volume = 37; o.Muted = true; o.Input = "hdmi2"; });
+        var reply = panel.Respond(SiteDriver().StatusGet()).Single();
+
+        // AA FF id 09 'A' 00 power volume mute input aspect 00 00 cs
+        reply.Take(13).Should().Equal(0xAA, 0xFF, 0x00, 0x09, 0x41, 0x00, 0x01, 37, 0x01, 0x23, 0x10, 0x00, 0x00);
+        reply[13].Should().Be(MockSamsungMdcResponder.Checksum(reply, 13));
+    }
+
+    [Fact]
+    public void Bad_Checksum_Is_Ignored()
+    {
+        var frame = SiteDriver().StatusGet();
+        frame[frame.Length - 1] ^= 0xFF;
+        Panel().Respond(frame).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Other_Display_Id_Is_Ignored()
+    {
+        var other = new SamsungMdcDriverCopy(0x01, 0, 99);
+        Panel().Respond(other.StatusGet()).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Broadcast_Set_Applies_Without_Ack_And_Broadcast_Get_Answers()
+    {
+        var panel = Panel();
+        var broadcast = new SamsungMdcDriverCopy(MockSamsungMdcResponder.BroadcastId, 0, 0);
+
+        panel.Respond(broadcast.MuteOn()).Should().BeEmpty();
+        var reply = panel.Respond(broadcast.MuteGet()).Single();
+        reply.Take(7).Should().Equal(0xAA, 0xFF, SiteId, 0x03, 0x41, 0x13, 0x01);
+        reply[7].Should().Be(0x57); // (FF + 00 + 03 + 41 + 13 + 01) & FF
+    }
+
+    [Fact]
+    public void Unknown_Commands_Are_Silent()
+    {
+        // 0x15 picture size, 0x62 volume up/down: valid MDC commands this mock doesn't implement
+        Panel().Respond(MockSamsungMdcResponder.Command(0x15, SiteId)).Should().BeEmpty();
+        Panel().Respond(MockSamsungMdcResponder.Command(0x62, SiteId, 0x00)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void FrameLength_Splits_Back_To_Back_And_Waits_For_Split_Frames()
+    {
+        var driver = SiteDriver();
+        var buffer = new List<byte>();
+        buffer.AddRange(driver.StatusGet());
+        buffer.AddRange(driver.InputGeneric(0x23));
+
+        MockSamsungMdcResponder.FrameLength(buffer).Should().Be(5);
+        buffer.RemoveRange(0, 5);
+        MockSamsungMdcResponder.FrameLength(buffer).Should().Be(6);
+
+        MockSamsungMdcResponder.FrameLength(new List<byte> { 0xAA, 0x14, 0x00 }).Should().Be(0, "length byte not here yet");
+        MockSamsungMdcResponder.FrameLength(new List<byte> { 0x00, 0xAA }).Should().Be(1, "noise byte is dropped");
+    }
+
+    // ---- Power ----
+
+    [Fact]
+    public void Off_Panel_Answers_Status_And_Power_And_Naks_The_Rest()
+    {
+        var driver = SiteDriver();
+        var panel = Panel(powerOn: false);
+
+        Exchange(driver, panel, driver.StatusGet());
+        driver.PowerIsOn.Should().BeFalse();
+
+        panel.Respond(driver.PowerGet()).Single()[6].Should().Be(0x00);
+        panel.Respond(driver.InputGeneric(0x23)).Single().Should().Equal(0xAA, 0xFF, 0x00, 0x03, 0x4E, 0x14, 0x01, 0x65);
+        panel.Respond(driver.MuteOn()).Single()[4].Should().Be(MockSamsungMdcResponder.Nak);
+        panel.Respond(driver.SendVolumeCommand(1000)).Single()[4].Should().Be(MockSamsungMdcResponder.Nak);
+    }
+
+    [Fact]
+    public void Off_Panel_Answers_Everything_When_NakWhileOff_Is_False()
+    {
+        var panel = Panel(powerOn: false, o => o.NakWhileOff = false);
+        panel.Respond(SiteDriver().MuteOn()).Single()[4].Should().Be(MockSamsungMdcResponder.Ack);
+    }
+
+    [Fact]
+    public void Power_On_Then_Off_Updates_Driver()
+    {
+        var driver = SiteDriver();
+        var panel = Panel(powerOn: false);
+
+        Exchange(driver, panel, driver.PowerOn());
+        driver.PowerIsOn.Should().BeTrue();
+        Exchange(driver, panel, driver.StatusGet());
+        driver.PowerIsOn.Should().BeTrue();
+
+        Exchange(driver, panel, driver.PowerOff());
+        driver.PowerIsOn.Should().BeFalse();
+        panel.Describe().Should().Contain("power=off");
+    }
+
+    // ---- Inputs ----
+
+    [Fact]
+    public void Every_Selectable_Driver_Input_Round_Trips()
+    {
+        var driver = SiteDriver();
+        var panel = Panel();
+        var mismatches = 0;
+
+        // The "usb" port has no selector, so the driver can't select it
+        var selectable = SamsungMdcDriverCopy.DefaultPorts.Where(p => p.Key != "usb").ToArray();
+        foreach (var port in selectable)
+        {
+            var expected = Array.IndexOf(SamsungMdcDriverCopy.DefaultPorts, port) + 1;
+
+            driver.CurrentInputNumber = 0;
+            Exchange(driver, panel, driver.InputGeneric(port.Code));
+            var afterSet = driver.CurrentInputNumber;
+
+            driver.CurrentInputNumber = 0;
+            Exchange(driver, panel, driver.StatusGet());
+            var afterPoll = driver.CurrentInputNumber;
+
+            if (afterSet != expected || afterPoll != expected)
+            {
+                mismatches++;
+                output.WriteLine($"{port.Key} 0x{port.Code:X2}: set->{afterSet} poll->{afterPoll}, expected {expected}");
+            }
+        }
+
+        output.WriteLine($"Inputs swept: {selectable.Length}, mismatches: {mismatches}");
+        mismatches.Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData(0x22)] // HDMI1_PC: get only
+    [InlineData(0x99)] // not an MDC input code (the driver's "usb" port)
+    public void Set_Input_With_Get_Only_Or_Unknown_Code_Is_Nakd(byte code)
+    {
+        Panel().Respond(SiteDriver().InputGeneric(code)).Single()[4].Should().Be(MockSamsungMdcResponder.Nak);
+    }
+
+    [Fact]
+    public void KnownBug_Hdmi_Pc_Variant_And_Internal_Usb_Are_Not_Recognised()
+    {
+        // A panel on HDMI1 with a PC signal reports 0x22 (spec 2.1.14: get-only code); Internal/USB is 0x62.
+        // The driver only matches 0x21 / 0x99, so its input feedback goes stale.
+        foreach (var reported in new[] { "hdmi1Pc", "internalUsb" })
+        {
+            var driver = SiteDriver();
+            var panel = Panel();
+            panel.SetInput(reported).Should().BeTrue();
+
+            driver.CurrentInputNumber = 5;
+            Exchange(driver, panel, driver.StatusGet());
+            driver.CurrentInputNumber.Should().Be(5, $"{reported} matches no routing port");
+        }
+    }
+
+    [Fact]
+    public void KnownBug_SetInput_Rejects_The_Last_Input_Number()
+    {
+        // SetInput(int) bails on value >= InputPorts.Count, so the last port can never be picked by number
+        var count = SamsungMdcDriverCopy.DefaultPorts.Length;
+        SamsungMdcDriverCopy.SetInputAccepts(count - 1, count).Should().BeTrue();
+        SamsungMdcDriverCopy.SetInputAccepts(count, count).Should().BeFalse();
+    }
+
+    // ---- Volume and mute ----
+
+    [Theory]
+    [InlineData(0, 99)]   // site config: volumeLowerLimit 0, volumeUpperLimit 99
+    [InlineData(0, 0)]    // limits unset: unscaled 0-100
+    [InlineData(20, 80)]
+    public void Volume_Sweep_Every_Ui_Level(int lower, int upper)
+    {
+        var driver = new SamsungMdcDriverCopy(SiteId, lower, upper);
+        var panel = Panel();
+        var top = upper > lower ? upper : 100;
+        var bottom = upper > lower ? lower : 0;
+
+        int naks = 0, outOfRange = 0, feedbackMismatch = 0;
+        var levelsReached = new HashSet<int>();
+
+        for (var level = 0; level <= 65535; level++)
+        {
+            var frame = driver.SendVolumeCommand((ushort)level);
+            var sent = frame[4];
+            if (sent < bottom || sent > top) outOfRange++;
+
+            var reply = Exchange(driver, panel, frame).Single();
+            if (reply[4] != MockSamsungMdcResponder.Ack) { naks++; continue; }
+
+            levelsReached.Add(reply[6]);
+            var expectedFeedback = (ushort)SamsungMdcDriverCopy.Scale(sent, bottom, top, 0, 65535);
+            if (driver.VolumeLevelForSig != expectedFeedback) feedbackMismatch++;
+        }
+
+        output.WriteLine($"limits {lower}-{upper}: naks={naks} outOfRange={outOfRange} feedbackMismatch={feedbackMismatch} " +
+                         $"distinct panel levels={levelsReached.Count} ({levelsReached.Min()}-{levelsReached.Max()})");
+
+        naks.Should().Be(0);
+        outOfRange.Should().Be(0);
+        feedbackMismatch.Should().Be(0);
+        levelsReached.Should().HaveCount(top - bottom + 1, "every panel level in range is reachable from the UI");
+    }
+
+    [Theory]
+    [InlineData(0, 99, 96)]
+    [InlineData(0, 0, 95)]
+    public void KnownBug_Volume_Feedback_Echoed_Back_Drifts_Down(int lower, int upper, int expectedDrifting)
+    {
+        // A UI that sends back the level it was given (e.g. a slider re-sent unchanged) moves the panel down a step,
+        // because both directions truncate instead of rounding
+        var driver = new SamsungMdcDriverCopy(SiteId, lower, upper);
+        var top = upper > lower ? upper : 100;
+        var bottom = upper > lower ? lower : 0;
+        var drifting = new List<int>();
+
+        for (var v = bottom; v <= top; v++)
+        {
+            var panel = Panel(configure: o => o.Volume = v);
+            Exchange(driver, panel, driver.VolumeGet());
+            var reply = Exchange(driver, panel, driver.SendVolumeCommand(driver.VolumeLevelForSig)).Single();
+            if (reply[6] != v) drifting.Add(v);
+        }
+
+        output.WriteLine($"limits {lower}-{upper}: {drifting.Count} levels drift: {string.Join(",", drifting.Take(20))}...");
+        drifting.Should().HaveCount(expectedDrifting);
+    }
+
+    [Theory]
+    [InlineData(0, 99)]
+    [InlineData(0, 0)]
+    public void KnownBug_Single_Volume_Up_Tap_Never_Changes_Level(int lower, int upper)
+    {
+        // ActionIncrementer.Go: first step = _lastVolumeSent (feedback level) + 655, sent through SendVolumeCommand
+        var driver = new SamsungMdcDriverCopy(SiteId, lower, upper);
+        var top = upper > lower ? upper : 100;
+        var bottom = upper > lower ? lower : 0;
+        var unchanged = 0;
+
+        for (var v = bottom; v < top; v++)
+        {
+            var panel = Panel(configure: o => o.Volume = v);
+            Exchange(driver, panel, driver.VolumeGet());
+            var next = Math.Min(65535, driver.VolumeLevelForSig + 655);
+            var reply = Exchange(driver, panel, driver.SendVolumeCommand((ushort)next)).Single();
+            if (reply[6] == v) unchanged++;
+        }
+
+        output.WriteLine($"limits {lower}-{upper}: a single up tap leaves {unchanged} of {top - bottom} levels unchanged");
+        unchanged.Should().Be(top - bottom);
+    }
+
+    [Theory]
+    [InlineData(0, 99, 0, 98)]
+    [InlineData(20, 80, 32, 68)]
+    public void KnownBug_Volume_Ramp_Limits_Are_Scaled_Twice(int lower, int upper, int expectedMin, int expectedMax)
+    {
+        // InitVolumeControls scales the limits into 0-65535 for the incrementer, then SendVolumeCommand
+        // scales 0-65535 into lower-upper again
+        var driver = new SamsungMdcDriverCopy(SiteId, lower, upper);
+        var rampMin = (int)SamsungMdcDriverCopy.Scale(lower, 0, 100, 0, 65535);
+        var rampMax = (int)SamsungMdcDriverCopy.Scale(upper, 0, 100, 0, 65535);
+
+        driver.SendVolumeCommand((ushort)rampMin)[4].Should().Be((byte)expectedMin);
+        driver.SendVolumeCommand((ushort)rampMax)[4].Should().Be((byte)expectedMax);
+    }
+
+    [Fact]
+    public void Volume_Edges()
+    {
+        var panel = Panel();
+        panel.Respond(MockSamsungMdcResponder.Command(0x12, SiteId, 0)).Single()[6].Should().Be(0);
+        panel.Respond(MockSamsungMdcResponder.Command(0x12, SiteId, 1)).Single()[6].Should().Be(1);
+        panel.Respond(MockSamsungMdcResponder.Command(0x12, SiteId, 100)).Single()[6].Should().Be(100);
+        panel.Respond(MockSamsungMdcResponder.Command(0x12, SiteId, 101)).Single()[4].Should().Be(MockSamsungMdcResponder.Nak);
+        panel.Respond(MockSamsungMdcResponder.Command(0x12, SiteId)).Single()[6].Should().Be(100, "a NAK leaves the level alone");
+    }
+
+    [Fact]
+    public void Mute_On_Off_Round_Trips()
+    {
+        var driver = SiteDriver();
+        var panel = Panel();
+
+        Exchange(driver, panel, driver.MuteOn());
+        driver.IsMuted.Should().BeTrue();
+        Exchange(driver, panel, driver.StatusGet());
+        driver.IsMuted.Should().BeTrue();
+        Exchange(driver, panel, driver.MuteOff());
+        driver.IsMuted.Should().BeFalse();
+        Exchange(driver, panel, driver.MuteGet());
+        driver.IsMuted.Should().BeFalse();
+    }
+
+    // ---- Faults ----
+
+    [Fact]
+    public void Fault_Ng_Naks_Every_Known_Command_And_Silent_Answers_Nothing()
+    {
+        var driver = SiteDriver();
+        var panel = Panel();
+        var commands = new[] { driver.StatusGet(), driver.PowerOn(), driver.InputGeneric(0x21), driver.MuteOn(), driver.VolumeGet() };
+
+        panel.Fault = MockSamsungMdcFault.Ng;
+        foreach (var command in commands)
+        {
+            var reply = panel.Respond(command).Single();
+            reply.Should().HaveCount(8);
+            reply[4].Should().Be(MockSamsungMdcResponder.Nak);
+            reply[5].Should().Be(command[1]);
+        }
+
+        panel.Fault = MockSamsungMdcFault.Silent;
+        commands.Should().OnlyContain(c => panel.Respond(c).Count == 0);
+    }
+
+    [Fact]
+    public void KnownBug_Nak_Error_Byte_Is_Read_As_A_Value()
+    {
+        // ParseMessage never checks 'A'/'N': a NAK's error code (0x01 here) is taken as the value
+        var driver = SiteDriver();
+        var panel = Panel(powerOn: false);
+        panel.Fault = MockSamsungMdcFault.Ng;
+
+        Exchange(driver, panel, driver.MuteOn());
+        driver.IsMuted.Should().BeTrue("the NAK's error byte 0x01 reads as 'muted'");
+
+        // A NAKed status poll: power reads the error byte as "on", then message[8] runs past the 8-byte frame
+        Exchange(driver, panel, driver.StatusGet());
+        driver.PowerIsOn.Should().BeTrue("the panel is off, but the NAK's error byte 0x01 reads as power on");
+        driver.Exceptions.Should().ContainSingle().Which.Should().BeOfType<IndexOutOfRangeException>();
+    }
+
+    // ---- Driver receive framing (PR #51 territory) ----
+
+    [Fact]
+    public void Split_Reply_Is_Reassembled_By_The_Driver()
+    {
+        var driver = SiteDriver();
+        var reply = Panel(configure: o => o.Input = "hdmi4").Respond(driver.StatusGet()).Single();
+
+        driver.BytesReceived(reply.Take(3).ToArray());
+        driver.BytesReceived(reply.Skip(3).ToArray());
+
+        driver.Exceptions.Should().BeEmpty();
+        driver.CurrentInputNumber.Should().Be(4);
+    }
+
+    [Fact]
+    public void KnownBug_Second_Of_Two_Coalesced_Replies_Is_Dropped()
+    {
+        // TCP can deliver two replies in one read (e.g. status + LED monitoring when pollLedTemps is on).
+        // The driver parses the first frame and clears the buffer.
+        var driver = SiteDriver();
+        var panel = Panel();
+        var both = panel.Respond(driver.StatusGet()).Single().Concat(panel.Respond(driver.LedProductMonitorGet()).Single()).ToArray();
+
+        driver.BytesReceived(both);
+
+        driver.ParsedMessages.Should().HaveCount(1);
+        driver.LedTemperatureCelsius.Should().Be(0, "the LED monitoring reply was thrown away");
+    }
+
+    [Fact]
+    public void KnownBug_Echoed_Command_Ahead_Of_Reply_Loses_The_Reply()
+    {
+        // Field condition PR #51 fixes (mock option "echoCommands"): the 5-byte GET echo is taken as a whole
+        // message, ParseMessage reads message[5] past its end, and the real ACK in the same chunk is lost
+        var driver = SiteDriver();
+        var panel = Panel(configure: o => o.Volume = 55);
+        var get = driver.VolumeGet();
+        var chunk = get.Concat(panel.Respond(get).Single()).ToArray();
+
+        driver.BytesReceived(chunk);
+
+        driver.Exceptions.Should().ContainSingle().Which.Should().BeOfType<IndexOutOfRangeException>();
+        driver.VolumeLevelForSig.Should().Be(0, "the ACK carrying volume 55 never reached the parser");
+    }
+
+    // ---- Device info and LED monitoring ----
+
+    [Fact]
+    public void Led_Monitoring_Temperature_Reaches_The_Driver()
+    {
+        var driver = SiteDriver();
+        Exchange(driver, Panel(configure: o => o.TemperatureC = 47), driver.LedProductMonitorGet());
+        driver.LedTemperatureCelsius.Should().Be(47);
+    }
+
+    [Fact]
+    public void Serial_Number_Reaches_The_Driver()
+    {
+        var driver = SiteDriver();
+        Exchange(driver, Panel(configure: o => o.SerialNumber = "ABC123"), driver.UpdateDeviceInfo()[0]);
+        driver.SerialNumber.Should().StartWith("ABC123");
+    }
+
+    [Fact]
+    public void KnownBug_Software_Version_Parse_Overruns_The_Frame()
+    {
+        // Array.Copy(message, 6, firmware, 0, message[3]) copies DATA_LEN bytes from offset 6, two past the end
+        var driver = SiteDriver();
+        Exchange(driver, Panel(), driver.UpdateDeviceInfo()[1]);
+        driver.FirmwareVersion.Should().BeNull();
+        driver.Exceptions.Should().ContainSingle().Which.Should().BeOfType<ArgumentException>();
+    }
+
+    [Fact]
+    public void KnownBug_Network_And_Mac_Queries_Use_Sub_Command_As_Command()
+    {
+        // UpdateDeviceInfo sends AA 82 .. and AA 81 .. ; the spec query is AA 1B id 01 82 cs (0x81 isn't in v14.4c)
+        var driver = SiteDriver();
+        var panel = Panel();
+        var frames = driver.UpdateDeviceInfo();
+        frames[2][1].Should().Be(0x82);
+        frames[3][1].Should().Be(0x81);
+        panel.Respond(frames[2]).Should().BeEmpty();
+        panel.Respond(frames[3]).Should().BeEmpty();
+
+        // Even the spec frame wouldn't land: the parser checks message[4] (the 'A') for the sub-command
+        Exchange(driver, panel, MockSamsungMdcResponder.Command(0x1B, SiteId, 0x82)).Single()[6].Should().Be(0x82);
+        driver.IpAddress.Should().BeNull();
+    }
+
+    // ---- Panel-side changes ----
+
+    [Fact]
+    public void Panel_Changes_Run_Through_PanelChange_In_Order()
+    {
+        var panel = Panel();
+        var queued = new List<Func<IList<byte[]>>>();
+        panel.PanelChange += queued.Add;
+
+        panel.SetVolume(80);
+        panel.SetInput("0x25").Should().BeTrue();
+        panel.SetInput("nonsense").Should().BeFalse();
+        panel.Describe().Should().Contain("volume=20", "nothing applies until the reply thread runs the change");
+
+        queued.Should().HaveCount(2);
+        foreach (var change in queued) change().Should().BeEmpty("an MDC panel reports nothing unprompted");
+        panel.Describe().Should().Contain("volume=80").And.Contain("displayPort1");
+    }
+}
