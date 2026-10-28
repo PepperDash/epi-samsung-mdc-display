@@ -1118,6 +1118,28 @@ namespace PepperDashPluginSamsungMdcDisplay
             _powerIsOn = true;
             _powerSetPending = true;
 
+            // Set up the warm-up before sending, so a fast NAK finds a transition to cancel
+            if (WarmupTimer != null || WarmupTime == 0)
+            {
+                PowerIsOnFeedback.FireUpdate();
+            }
+            else
+            {
+                _isWarmingUp = true;
+                IsWarmingUpFeedback.FireUpdate();
+
+                // Fake power-up cycle
+                WarmupTimer = new Timer(WarmupTime) { AutoReset = false };
+                WarmupTimer.Elapsed += (sender, args) =>
+                {
+                    _isWarmingUp = false;
+
+                    IsWarmingUpFeedback.FireUpdate();
+                    PowerIsOnFeedback.FireUpdate();
+                };
+                WarmupTimer.Start();
+            }
+
             SendBytes(
                 new byte[]
                 {
@@ -1129,26 +1151,6 @@ namespace PepperDashPluginSamsungMdcDisplay
                     0x00,
                 }
             );
-
-            if (WarmupTimer != null || WarmupTime == 0)
-            {
-                PowerIsOnFeedback.FireUpdate();
-                return;
-            }
-
-            _isWarmingUp = true;
-            IsWarmingUpFeedback.FireUpdate();
-
-            // Fake power-up cycle
-            WarmupTimer = new Timer(WarmupTime) { AutoReset = false };
-            WarmupTimer.Elapsed += (sender, args) =>
-            {
-                _isWarmingUp = false;
-
-                IsWarmingUpFeedback.FireUpdate();
-                PowerIsOnFeedback.FireUpdate();
-            };
-            WarmupTimer.Start();
         }
 
         /// <summary>
@@ -1168,6 +1170,32 @@ namespace PepperDashPluginSamsungMdcDisplay
             _powerIsOn = false;
             _powerSetPending = true;
 
+            CurrentInputNumber = 0;
+
+            InputNumberFeedback.FireUpdate();
+
+            // Set up the cool-down before sending, so a fast NAK finds a transition to cancel
+            if (CooldownTimer != null || CooldownTime == 0)
+            {
+                PowerIsOnFeedback.FireUpdate();
+            }
+            else
+            {
+                _isCoolingDown = true;
+
+                IsCoolingDownFeedback.FireUpdate();
+
+                // Fake cool-down cycle
+                CooldownTimer = new Timer(CooldownTime) { AutoReset = false };
+                CooldownTimer.Elapsed += (sender, args) =>
+                {
+                    _isCoolingDown = false;
+                    PowerIsOnFeedback.FireUpdate();
+                    IsCoolingDownFeedback.FireUpdate();
+                };
+                CooldownTimer.Start();
+            }
+
             SendBytes(
                 new byte[]
                 {
@@ -1179,30 +1207,6 @@ namespace PepperDashPluginSamsungMdcDisplay
                     0x00,
                 }
             );
-
-            CurrentInputNumber = 0;
-
-            InputNumberFeedback.FireUpdate();
-
-            if (CooldownTimer != null || CooldownTime == 0)
-            {
-                PowerIsOnFeedback.FireUpdate();
-                return;
-            }
-
-            _isCoolingDown = true;
-
-            IsCoolingDownFeedback.FireUpdate();
-
-            // Fake cool-down cycle
-            CooldownTimer = new Timer(CooldownTime) { AutoReset = false };
-            CooldownTimer.Elapsed += (sender, args) =>
-            {
-                _isCoolingDown = false;
-                PowerIsOnFeedback.FireUpdate();
-                IsCoolingDownFeedback.FireUpdate();
-            };
-            CooldownTimer.Start();
         }
 
         /// <summary>
@@ -1245,11 +1249,14 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// </summary>
         private void EndPowerTransition()
         {
+            var ended = false;
+
             if (_isWarmingUp)
             {
                 if (WarmupTimer != null) WarmupTimer.Stop();
                 _isWarmingUp = false;
                 IsWarmingUpFeedback.FireUpdate();
+                ended = true;
             }
 
             if (_isCoolingDown)
@@ -1257,6 +1264,14 @@ namespace PepperDashPluginSamsungMdcDisplay
                 if (CooldownTimer != null) CooldownTimer.Stop();
                 _isCoolingDown = false;
                 IsCoolingDownFeedback.FireUpdate();
+                ended = true;
+            }
+
+            // The stopped timer would have published power feedback; publish it now, since the
+            // re-query reply only publishes when the state changes
+            if (ended)
+            {
+                PowerIsOnFeedback.FireUpdate();
             }
         }
 
