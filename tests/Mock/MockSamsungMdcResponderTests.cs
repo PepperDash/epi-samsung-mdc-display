@@ -389,20 +389,49 @@ public class MockSamsungMdcResponderTests
     }
 
     [Fact]
-    public void KnownBug_Nak_Error_Byte_Is_Read_As_A_Value()
+    public void Nak_Is_Not_Applied_As_A_Value()
     {
-        // ParseMessage never checks 'A'/'N': a NAK's error code (0x01 here) is taken as the value
+        // A NAK's value byte is an error code (0x01 here); it must not read as "muted" or "power on"
         var driver = SiteDriver();
         var panel = Panel(powerOn: false);
         panel.Fault = MockSamsungMdcFault.Ng;
 
         Exchange(driver, panel, driver.MuteOn());
-        driver.IsMuted.Should().BeTrue("the NAK's error byte 0x01 reads as 'muted'");
+        driver.IsMuted.Should().BeFalse();
 
-        // A NAKed status poll: power reads the error byte as "on", then message[8] runs past the 8-byte frame
+        // A NAKed status poll is 8 bytes: no value is read and nothing runs past the frame
         Exchange(driver, panel, driver.StatusGet());
-        driver.PowerIsOn.Should().BeTrue("the panel is off, but the NAK's error byte 0x01 reads as power on");
-        driver.Exceptions.Should().ContainSingle().Which.Should().BeOfType<IndexOutOfRangeException>();
+        driver.PowerIsOn.Should().BeFalse();
+        driver.NaksReceived.Should().Be(2);
+        driver.Exceptions.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Short_Ack_Is_Ignored_Without_Throwing()
+    {
+        // A status ACK cut short (valid header/length, too few values) must not index past the frame
+        var driver = SiteDriver();
+        var shortStatus = new byte[] { 0xAA, 0xFF, 0x00, 0x03, 0x41, 0x00, 0x01, 0x00 };
+        shortStatus[7] = MockSamsungMdcResponder.Checksum(shortStatus, 7);
+
+        driver.BytesReceived(shortStatus);
+
+        driver.Exceptions.Should().BeEmpty();
+        driver.PowerIsOn.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Reply_Without_AA_Header_Is_Ignored()
+    {
+        // A complete frame is parsed before the buffer's header check, so the parser must check AA itself
+        var driver = SiteDriver();
+        var noHeader = new byte[] { 0x00, 0xFF, SiteId, 0x03, 0x41, 0x13, 0x01, 0x00 };
+        noHeader[7] = MockSamsungMdcResponder.Checksum(noHeader, 7);
+
+        driver.BytesReceived(noHeader);
+
+        driver.Exceptions.Should().BeEmpty();
+        driver.IsMuted.Should().BeFalse();
     }
 
     // ---- Driver receive framing (PR #51 territory) ----
@@ -439,7 +468,7 @@ public class MockSamsungMdcResponderTests
     public void KnownBug_Echoed_Command_Ahead_Of_Reply_Loses_The_Reply()
     {
         // Field condition PR #51 fixes (mock option "echoCommands"): the 5-byte GET echo is taken as a whole
-        // message, ParseMessage reads message[5] past its end, and the real ACK in the same chunk is lost
+        // message and the buffer is cleared, so the real ACK in the same chunk is lost
         var driver = SiteDriver();
         var panel = Panel(configure: o => o.Volume = 55);
         var get = driver.VolumeGet();
@@ -447,7 +476,6 @@ public class MockSamsungMdcResponderTests
 
         driver.BytesReceived(chunk);
 
-        driver.Exceptions.Should().ContainSingle().Which.Should().BeOfType<IndexOutOfRangeException>();
         driver.VolumeLevelForSig.Should().Be(0, "the ACK carrying volume 55 never reached the parser");
     }
 

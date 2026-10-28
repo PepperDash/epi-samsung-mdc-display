@@ -8,6 +8,21 @@
         public const byte Header = 0xAA;
 
         /// <summary>
+        /// Command byte of every reply frame (ACK/NAK)
+        /// </summary>
+        public const byte AckNak = 0xFF;
+
+        /// <summary>
+        /// Reply frame byte 4 for an acknowledged command ('A')
+        /// </summary>
+        public const byte Ack = 0x41;
+
+        /// <summary>
+        /// Reply frame byte 4 for a rejected command ('N'); the value that follows the r-cmd is an error code
+        /// </summary>
+        public const byte Nak = 0x4E;
+
+        /// <summary>
         /// 2.1.00 Status control (Cmd: 0x00)
         /// Gets the current status, status includes: val1=Power, val2=Volume, val3=Mute, val4=Input, val5=Aspect, val6=N Time NF, val7=F Time NF
         /// </summary>
