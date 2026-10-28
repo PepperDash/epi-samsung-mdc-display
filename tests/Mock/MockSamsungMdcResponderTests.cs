@@ -452,6 +452,37 @@ public class MockSamsungMdcResponderTests
         commands.Should().OnlyContain(c => panel.Respond(c).Count == 0);
     }
 
+    [Theory]
+    [InlineData(0x00, "Status")]
+    [InlineData(0x0B, "Serial Number")]
+    [InlineData(0x0E, "SW Version")]
+    [InlineData(0x11, "Power")]
+    [InlineData(0x12, "Volume")]
+    [InlineData(0x13, "Mute")]
+    [InlineData(0x14, "Input Source")]
+    [InlineData(0x1B, "System Configuration")]
+    [InlineData(0x85, "Temperature")]
+    [InlineData(0x99, "Unknown command")]
+    public void Nak_Log_Names_The_Refused_Command(byte command, string name)
+    {
+        SamsungMdcCommands.CommandName(command).Should().Be(name);
+    }
+
+    [Fact]
+    public void Nak_Error_Code_Is_The_Byte_Before_The_Checksum()
+    {
+        // Plain NAK: AA FF id 03 'N' r-cmd err cs; a NAK with a sub-command (0x1B 0x82) puts it before err
+        var driver = SiteDriver();
+        var panel = Panel();
+        panel.Fault = MockSamsungMdcFault.Ng;
+
+        var plain = panel.Respond(driver.MuteOn()).Single();
+        SamsungMdcCommands.NakErrorCode(plain).Should().Be(MockSamsungMdcResponder.NakError);
+
+        var withSubCommand = new byte[] { 0xAA, 0xFF, SiteId, 0x04, 0x4E, 0x1B, 0x82, 0x02, 0x00 };
+        SamsungMdcCommands.NakErrorCode(withSubCommand).Should().Be(0x02);
+    }
+
     [Fact]
     public void Nak_Is_Not_Applied_As_A_Value()
     {

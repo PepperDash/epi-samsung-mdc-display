@@ -433,5 +433,34 @@
         /// 2.1.1B.82 Network configuration (system configuration sub-cmd: 0x82)
         /// </summary>
         public const byte NetworkConfiguration = 0x82;
+
+        /// <summary>
+        /// A readable name for a command this driver sends, for log messages
+        /// </summary>
+        public static string CommandName(byte command)
+        {
+            switch (command)
+            {
+                case StatusControl: return "Status";
+                case SerialNumberControl: return "Serial Number";
+                case SwVersionControl: return "SW Version";
+                case PowerControl: return "Power";
+                case VolumeControl: return "Volume";
+                case MuteControl: return "Mute";
+                case InputSourceControl: return "Input Source";
+                case SystemConfiguration: return "System Configuration";
+                case TemperatureControl: return "Temperature";
+                default: return "Unknown command";
+            }
+        }
+
+        /// <summary>
+        /// The error code of a NAK frame: the last byte before the checksum ([AA][FF][id][len]['N'][r-cmd]...[err][cs]).
+        /// The spec says the codes are for internal use and differ by command and model, so they are only logged.
+        /// </summary>
+        public static byte NakErrorCode(byte[] frame)
+        {
+            return frame[frame.Length - 2];
+        }
     }
 }
