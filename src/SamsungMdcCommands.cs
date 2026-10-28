@@ -450,16 +450,22 @@
                 case InputSourceControl: return "Input Source";
                 case SystemConfiguration: return "System Configuration";
                 case TemperatureControl: return "Temperature";
+                case LedProductFeature: return "LED Product Feature";
                 default: return "Unknown command";
             }
         }
 
         /// <summary>
-        /// The error code of a NAK frame: the last byte before the checksum ([AA][FF][id][len]['N'][r-cmd]...[err][cs]).
+        /// The error code of a NAK frame: the last byte before the checksum ([AA][FF][id][len]['N'][r-cmd]...[err][cs]),
+        /// or null for a short NAK with no error byte ([AA][FF][id][02]['N'][r-cmd][cs]).
         /// The spec says the codes are for internal use and differ by command and model, so they are only logged.
         /// </summary>
-        public static byte NakErrorCode(byte[] frame)
+        public static byte? NakErrorCode(byte[] frame)
         {
+            // Header, FF, id, len, 'N', r-cmd, err, checksum
+            if (frame == null || frame.Length < 8)
+                return null;
+
             return frame[frame.Length - 2];
         }
     }
