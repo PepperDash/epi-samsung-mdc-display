@@ -553,6 +553,18 @@ namespace PepperDashPluginSamsungMdcDisplay
                 return;
             }
 
+            // On a daisy chain every display's replies share the line: apply only this display's
+            if (message[2] != Id && Id != SamsungMdcCommands.BroadcastId)
+            {
+                this.LogDebug(
+                    "Ignoring reply from display ID 0x{replyId:X2} (this display is 0x{id:X2}): {frame}",
+                    message[2],
+                    Id,
+                    ComTextHelper.GetEscapedText(message)
+                );
+                return;
+            }
+
             if (message[4] == SamsungMdcCommands.Nak)
             {
                 // NAK: message[6] is an error code, not a value - never apply it as feedback

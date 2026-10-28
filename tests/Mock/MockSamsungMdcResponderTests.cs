@@ -498,6 +498,40 @@ public class MockSamsungMdcResponderTests
         driver.IsMuted.Should().BeFalse();
     }
 
+    [Fact]
+    public void Reply_From_Another_Display_Id_Is_Ignored()
+    {
+        // A daisy chain shares one line: a valid mute-on ACK from display 0x05 must not change this display
+        var driver = SiteDriver();
+        var otherDisplay = new byte[] { 0xAA, 0xFF, 0x05, 0x03, 0x41, 0x13, 0x01, 0x00 };
+        otherDisplay[7] = MockSamsungMdcResponder.Checksum(otherDisplay, 7);
+
+        driver.BytesReceived(otherDisplay);
+        driver.IsMuted.Should().BeFalse();
+
+        var ownDisplay = new byte[] { 0xAA, 0xFF, SiteId, 0x03, 0x41, 0x13, 0x01, 0x00 };
+        ownDisplay[7] = MockSamsungMdcResponder.Checksum(ownDisplay, 7);
+
+        driver.BytesReceived(ownDisplay);
+        driver.IsMuted.Should().BeTrue();
+        driver.Exceptions.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Broadcast_Configured_Driver_Accepts_Any_Display_Id()
+    {
+        // Configured as 0xFE, the driver has no single display ID to match, so a reply from a
+        // concrete display (here 0x05) must still update feedback
+        var driver = new SamsungMdcDriverCopy(0xFE, volumeLowerLimit: 0, volumeUpperLimit: 99);
+        var reply = new byte[] { 0xAA, 0xFF, 0x05, 0x03, 0x41, 0x13, 0x01, 0x00 };
+        reply[7] = MockSamsungMdcResponder.Checksum(reply, 7);
+
+        driver.BytesReceived(reply);
+
+        driver.IsMuted.Should().BeTrue();
+        driver.Exceptions.Should().BeEmpty();
+    }
+
     // ---- Driver receive framing (PR #51 territory) ----
 
     [Fact]
