@@ -548,18 +548,37 @@ public class MockSamsungMdcResponderTests
         // An unsupported poll is refused every 4.5 s: only the first refusal goes to Information
         var nakLog = new SamsungMdcNakLog();
 
-        nakLog.IsNewRefusal(0xD0, 0x01).Should().BeTrue();
-        nakLog.IsNewRefusal(0xD0, 0x01).Should().BeFalse();
-        nakLog.IsNewRefusal(0xD0, 0x01).Should().BeFalse();
+        nakLog.IsNewRefusal(SiteId, 0xD0, 0x01).Should().BeTrue();
+        nakLog.IsNewRefusal(SiteId, 0xD0, 0x01).Should().BeFalse();
+        nakLog.IsNewRefusal(SiteId, 0xD0, 0x01).Should().BeFalse();
 
         // Another command, or a different error for the same command, is new
-        nakLog.IsNewRefusal(0x13, 0x01).Should().BeTrue();
-        nakLog.IsNewRefusal(0xD0, 0x02).Should().BeTrue();
-        nakLog.IsNewRefusal(0x13, null).Should().BeTrue();
+        nakLog.IsNewRefusal(SiteId, 0x13, 0x01).Should().BeTrue();
+        nakLog.IsNewRefusal(SiteId, 0xD0, 0x02).Should().BeTrue();
+        nakLog.IsNewRefusal(SiteId, 0x13, null).Should().BeTrue();
+
+        // Alternating error codes are each shown once, not on every alternation
+        nakLog.IsNewRefusal(SiteId, 0xD0, 0x01).Should().BeFalse();
+        nakLog.IsNewRefusal(SiteId, 0xD0, 0x02).Should().BeFalse();
 
         // Once the display accepts the command, its next refusal is shown again
-        nakLog.Accepted(0xD0);
-        nakLog.IsNewRefusal(0xD0, 0x02).Should().BeTrue();
+        nakLog.Accepted(SiteId, 0xD0);
+        nakLog.IsNewRefusal(SiteId, 0xD0, 0x02).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Refusals_Are_Tracked_Per_Display_Id()
+    {
+        // A broadcast-configured driver hears every display on the line
+        var nakLog = new SamsungMdcNakLog();
+
+        nakLog.IsNewRefusal(0x01, 0xD0, 0x01).Should().BeTrue();
+        nakLog.IsNewRefusal(0x02, 0xD0, 0x01).Should().BeTrue("another display's first refusal is new");
+
+        // An ACK from display 0x01 does not clear display 0x02's refusal
+        nakLog.Accepted(0x01, 0xD0);
+        nakLog.IsNewRefusal(0x02, 0xD0, 0x01).Should().BeFalse();
+        nakLog.IsNewRefusal(0x01, 0xD0, 0x01).Should().BeTrue();
     }
 
     [Fact]
