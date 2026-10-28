@@ -490,6 +490,26 @@ public class MockSamsungMdcResponderTests
     }
 
     [Fact]
+    public void Repeated_Refusal_Is_Logged_Loudly_Once_Until_Accepted()
+    {
+        // An unsupported poll is refused every 4.5 s: only the first refusal goes to Information
+        var nakLog = new SamsungMdcNakLog();
+
+        nakLog.IsNewRefusal(0xD0, 0x01).Should().BeTrue();
+        nakLog.IsNewRefusal(0xD0, 0x01).Should().BeFalse();
+        nakLog.IsNewRefusal(0xD0, 0x01).Should().BeFalse();
+
+        // Another command, or a different error for the same command, is new
+        nakLog.IsNewRefusal(0x13, 0x01).Should().BeTrue();
+        nakLog.IsNewRefusal(0xD0, 0x02).Should().BeTrue();
+        nakLog.IsNewRefusal(0x13, null).Should().BeTrue();
+
+        // Once the display accepts the command, its next refusal is shown again
+        nakLog.Accepted(0xD0);
+        nakLog.IsNewRefusal(0xD0, 0x02).Should().BeTrue();
+    }
+
+    [Fact]
     public void Nak_Is_Not_Applied_As_A_Value()
     {
         // A NAK's value byte is an error code (0x01 here); it must not read as "muted" or "power on"

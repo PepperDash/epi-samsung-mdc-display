@@ -47,6 +47,8 @@ namespace PepperDashPluginSamsungMdcDisplay
 
         private bool _isPoweringOnIgnorePowerFb;
 
+        private readonly SamsungMdcNakLog _nakLog = new SamsungMdcNakLog();
+
         private bool _powerIsOn;
         protected override Func<bool> PowerIsOnFeedbackFunc
         {
@@ -569,14 +571,22 @@ namespace PepperDashPluginSamsungMdcDisplay
             {
                 // NAK: the display refused the command; its error code is not a value - never apply it as feedback
                 var errorCode = SamsungMdcCommands.NakErrorCode(message);
-                this.LogInformation(
-                    "Display 0x{id:X2} refused {commandName} (0x{command:X2}), {errorCode}: {frame}",
+                const string refusedMessage = "Display 0x{id:X2} refused {commandName} (0x{command:X2}), {errorCode}: {frame}";
+                var refusedArgs = new object[]
+                {
                     message[2],
                     SamsungMdcCommands.CommandName(message[5]),
                     message[5],
                     errorCode.HasValue ? string.Format("error code 0x{0:X2}", errorCode.Value) : "no error code",
                     ComTextHelper.GetEscapedText(message)
-                );
+                };
+
+                // The same refusal on every poll (e.g. an unsupported LED product poll) drops to Debug
+                // until the display accepts that command again
+                if (_nakLog.IsNewRefusal(message[5], errorCode))
+                    this.LogInformation(refusedMessage, refusedArgs);
+                else
+                    this.LogDebug(refusedMessage, refusedArgs);
                 return;
             }
 
@@ -587,6 +597,7 @@ namespace PepperDashPluginSamsungMdcDisplay
             }
 
             var command = message[5];
+            _nakLog.Accepted(command);
 
             if (!HasValues(message, ValueCountFor(command, message)))
             {

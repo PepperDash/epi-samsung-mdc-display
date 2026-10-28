@@ -25,6 +25,7 @@
     <Compile Include="..\src\Mock\MockSamsungMdcResponder.cs" Link="Mock\Linked\MockSamsungMdcResponder.cs" />
     <Compile Include="..\src\Mock\MockSamsungMdcOptions.cs" Link="Mock\Linked\MockSamsungMdcOptions.cs" />
     <Compile Include="..\src\SamsungMdcCommands.cs" Link="Mock\Linked\SamsungMdcCommands.cs" />
+    <Compile Include="..\src\SamsungMdcNakLog.cs" Link="Mock\Linked\SamsungMdcNakLog.cs" />
   </ItemGroup>
 
   <ItemGroup>
