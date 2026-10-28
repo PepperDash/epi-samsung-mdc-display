@@ -462,6 +462,7 @@ public class MockSamsungMdcResponderTests
     [InlineData(0x14, "Input Source")]
     [InlineData(0x1B, "System Configuration")]
     [InlineData(0x85, "Temperature")]
+    [InlineData(0xD0, "LED Product Feature")]
     [InlineData(0x99, "Unknown command")]
     public void Nak_Log_Names_The_Refused_Command(byte command, string name)
     {
@@ -481,6 +482,11 @@ public class MockSamsungMdcResponderTests
 
         var withSubCommand = new byte[] { 0xAA, 0xFF, SiteId, 0x04, 0x4E, 0x1B, 0x82, 0x02, 0x00 };
         SamsungMdcCommands.NakErrorCode(withSubCommand).Should().Be(0x02);
+
+        // A short NAK has no error byte: the byte before the checksum is the r-cmd, not an error code
+        var shortNak = new byte[] { 0xAA, 0xFF, SiteId, 0x02, 0x4E, 0x13, 0x00 };
+        shortNak[6] = MockSamsungMdcResponder.Checksum(shortNak, 6);
+        SamsungMdcCommands.NakErrorCode(shortNak).Should().BeNull();
     }
 
     [Fact]

@@ -568,12 +568,13 @@ namespace PepperDashPluginSamsungMdcDisplay
             if (message[4] == SamsungMdcCommands.Nak)
             {
                 // NAK: the display refused the command; its error code is not a value - never apply it as feedback
+                var errorCode = SamsungMdcCommands.NakErrorCode(message);
                 this.LogInformation(
-                    "Display 0x{id:X2} refused {commandName} (0x{command:X2}), error code 0x{errorCode:X2}: {frame}",
+                    "Display 0x{id:X2} refused {commandName} (0x{command:X2}), {errorCode}: {frame}",
                     message[2],
                     SamsungMdcCommands.CommandName(message[5]),
                     message[5],
-                    SamsungMdcCommands.NakErrorCode(message),
+                    errorCode.HasValue ? string.Format("error code 0x{0:X2}", errorCode.Value) : "no error code",
                     ComTextHelper.GetEscapedText(message)
                 );
                 return;
