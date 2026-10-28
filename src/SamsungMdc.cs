@@ -484,7 +484,37 @@ namespace PepperDashPluginSamsungMdcDisplay
         {
             // input ack rx: {header}{command}{id}{dataLen}{ack/nak}{r-cmd}{val-1}{checksum}
             // input ack rx: { 0xAA }{ 0xFF  }{id}{ 0x03  }{'A'/'N'}{ 0x14}{input}{checksum}
+            // Every reply is an ACK/NAK frame: header, 0xFF, id, length, 'A'/'N', r-cmd, values..., checksum
+            if (message == null || message.Length < 7 || message[1] != SamsungMdcCommands.AckNak)
+            {
+                this.LogVerbose("Ignoring non-reply frame: {frame}", message == null ? string.Empty : ComTextHelper.GetEscapedText(message));
+                return;
+            }
+
+            if (message[4] == SamsungMdcCommands.Nak)
+            {
+                // NAK: message[6] is an error code, not a value - never apply it as feedback
+                this.LogDebug(
+                    "NAK for command 0x{command:X2}: {frame}",
+                    message[5],
+                    ComTextHelper.GetEscapedText(message)
+                );
+                return;
+            }
+
+            if (message[4] != SamsungMdcCommands.Ack)
+            {
+                this.LogVerbose("Ignoring reply that is neither ACK nor NAK: {frame}", ComTextHelper.GetEscapedText(message));
+                return;
+            }
+
             var command = message[5];
+
+            if (!HasValues(message, ValueCountFor(command, message)))
+            {
+                this.LogVerbose("Ignoring short reply for command 0x{command:X2}: {frame}", command, ComTextHelper.GetEscapedText(message));
+                return;
+            }
 
             switch (command)
             {
@@ -644,6 +674,39 @@ namespace PepperDashPluginSamsungMdcDisplay
                         this.LogVerbose("Unknown message: {0}", ComTextHelper.GetEscapedText(message));
                         break;
                     }
+            }
+        }
+
+        /// <summary>
+        /// Whether an ACK frame carries at least <paramref name="count"/> values after the r-cmd (index 6 onwards),
+        /// plus its checksum
+        /// </summary>
+        private static bool HasValues(byte[] message, int count)
+        {
+            return message.Length >= 6 + count + 1;
+        }
+
+        /// <summary>
+        /// How many values ParseMessage reads for a reply to <paramref name="command"/>
+        /// </summary>
+        private static int ValueCountFor(byte command, byte[] message)
+        {
+            switch (command)
+            {
+                case SamsungMdcCommands.StatusControl:
+                    return 4; // power, volume, mute, input
+                case SamsungMdcCommands.PowerControl:
+                case SamsungMdcCommands.VolumeControl:
+                case SamsungMdcCommands.MuteControl:
+                case SamsungMdcCommands.InputSourceControl:
+                    return 1;
+                case SamsungMdcCommands.LedProductFeature:
+                    // sub-cmd, then power&IC, HDBT status, temperature for monitoring
+                    return message.Length > 7 && message[6] == SamsungMdcCommands.LedSubcmdMonitoring ? 4 : 1;
+                case SamsungMdcCommands.SerialNumberControl:
+                    return 18;
+                default:
+                    return 0;
             }
         }
 

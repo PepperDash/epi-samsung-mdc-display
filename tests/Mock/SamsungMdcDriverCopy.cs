@@ -1,9 +1,9 @@
 namespace PepperDashPluginSamsungMdcDisplay.Tests.Mock;
 
 /// <summary>
-/// The driver's own wire formatting and reply parsing, copied from src/SamsungMdc.cs (feature/migrate-to-v3-essentials
-/// at 52cccd8) with feedback objects replaced by plain fields. Keep the copied lines verbatim: the point is to run
-/// the mock against exactly what the driver sends and how it reads replies. Re-copy when SamsungMdc.cs changes.
+/// The driver's own wire formatting and reply parsing, copied from src/SamsungMdc.cs with feedback objects replaced
+/// by plain fields and logging dropped. Keep the copied lines verbatim: the point is to run the mock against exactly
+/// what the driver sends and how it reads replies. Update this copy in the same commit as any change to SamsungMdc.cs.
 /// </summary>
 internal sealed class SamsungMdcDriverCopy
 {
@@ -60,6 +60,7 @@ internal sealed class SamsungMdcDriverCopy
     public string? SerialNumber;
     public string? FirmwareVersion;
     public string? IpAddress;
+    public int NaksReceived;
     public readonly List<Exception> Exceptions = new();
     public readonly List<byte[]> ParsedMessages = new();
 
@@ -169,7 +170,28 @@ internal sealed class SamsungMdcDriverCopy
     private void ParseMessage(byte[] message)
     {
         ParsedMessages.Add(message);
+        if (message == null || message.Length < 7 || message[1] != 0xFF)
+        {
+            return;
+        }
+
+        if (message[4] == 0x4E) // NAK: message[6] is an error code
+        {
+            NaksReceived++;
+            return;
+        }
+
+        if (message[4] != 0x41)
+        {
+            return;
+        }
+
         var command = message[5];
+
+        if (!HasValues(message, ValueCountFor(command, message)))
+        {
+            return;
+        }
 
         switch (command)
         {
@@ -224,6 +246,32 @@ internal sealed class SamsungMdcDriverCopy
                     }
                     break;
                 }
+        }
+    }
+
+    private static bool HasValues(byte[] message, int count)
+    {
+        return message.Length >= 6 + count + 1;
+    }
+
+    private static int ValueCountFor(byte command, byte[] message)
+    {
+        switch (command)
+        {
+            case StatusControl:
+                return 4; // power, volume, mute, input
+            case PowerControl:
+            case VolumeControl:
+            case MuteControl:
+            case InputSourceControl:
+                return 1;
+            case LedProductFeature:
+                // sub-cmd, then power&IC, HDBT status, temperature for monitoring
+                return message.Length > 7 && message[6] == LedSubcmdMonitoring ? 4 : 1;
+            case SerialNumberControl:
+                return 18;
+            default:
+                return 0;
         }
     }
 
