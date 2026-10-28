@@ -517,6 +517,21 @@ public class MockSamsungMdcResponderTests
         driver.Exceptions.Should().BeEmpty();
     }
 
+    [Fact]
+    public void Broadcast_Configured_Driver_Accepts_Any_Display_Id()
+    {
+        // Configured as 0xFE, the driver has no single display ID to match, so a reply from a
+        // concrete display (here 0x05) must still update feedback
+        var driver = new SamsungMdcDriverCopy(0xFE, volumeLowerLimit: 0, volumeUpperLimit: 99);
+        var reply = new byte[] { 0xAA, 0xFF, 0x05, 0x03, 0x41, 0x13, 0x01, 0x00 };
+        reply[7] = MockSamsungMdcResponder.Checksum(reply, 7);
+
+        driver.BytesReceived(reply);
+
+        driver.IsMuted.Should().BeTrue();
+        driver.Exceptions.Should().BeEmpty();
+    }
+
     // ---- Driver receive framing (PR #51 territory) ----
 
     [Fact]
