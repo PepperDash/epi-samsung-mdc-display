@@ -17,12 +17,17 @@ public class FactoryMetadataTests
     {
         var content = FactorySourceContent.Value;
 
-        // Must match the exact PepperDashEssentials version pinned in the csproj, not a bare
-        // "3.0.0" (no stable/GA 3.0.0 has shipped; semver ranks a prerelease/RC lower than the
-        // plain version, so a mismatched literal can fail the runtime compatibility gate).
-        var pattern = @"MinimumEssentialsFrameworkVersion\s*=\s*""3\.0\.0-rc\.1""";
-        Regex.IsMatch(content, pattern).Should().BeTrue(
-            "Factory should set MinimumEssentialsFrameworkVersion to \"3.0.0-rc.1\", matching the pinned PackageReference");
+        var match = Regex.Match(content, @"MinimumEssentialsFrameworkVersion\s*=\s*""([^""]*)""");
+        match.Success.Should().BeTrue("Factory should set MinimumEssentialsFrameworkVersion");
+        var minimumVersion = match.Groups[1].Value;
+
+        // Essentials' gate (Global.IsRunningMinimumVersionOrHigher) parses the minimum with
+        // new Version(...) and skips the plugin if that throws, so a prerelease literal such as
+        // "3.0.0-rc.1" is never loaded. The running version has its prerelease suffix dropped
+        // before comparing, so a bare "3.0.0" passes on every 3.0.0 prerelease.
+        Version.TryParse(minimumVersion, out _).Should().BeTrue(
+            "Essentials skips a plugin whose minimum version System.Version cannot parse, got \"{0}\"", minimumVersion);
+        minimumVersion.Should().Be("3.0.0");
     }
 
     [Fact]
