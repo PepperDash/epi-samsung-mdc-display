@@ -47,6 +47,9 @@ namespace PepperDashPluginSamsungMdcDisplay
 
         private bool _isPoweringOnIgnorePowerFb;
 
+        // A power SET has been sent and not yet acknowledged or refused
+        private bool _powerSetPending;
+
         private bool _powerIsOn;
         protected override Func<bool> PowerIsOnFeedbackFunc
         {
@@ -576,6 +579,16 @@ namespace PepperDashPluginSamsungMdcDisplay
                     SamsungMdcCommands.NakErrorCode(message),
                     ComTextHelper.GetEscapedText(message)
                 );
+
+                // A refused power SET leaves the optimistic power state (and a fake warm-up/cool-down)
+                // wrong until the next status poll: end the transition and ask for the real state once.
+                // Only after a SET, so a model that refuses the power query cannot loop.
+                if (message[5] == SamsungMdcCommands.PowerControl && _powerSetPending)
+                {
+                    _powerSetPending = false;
+                    EndPowerTransition();
+                    PowerGet();
+                }
                 return;
             }
 
@@ -632,6 +645,7 @@ namespace PepperDashPluginSamsungMdcDisplay
                 case SamsungMdcCommands.PowerControl:
                     {
                         this.LogVerbose("PowerControl-'{0}d'", message[6]);
+                        _powerSetPending = false;
                         UpdatePowerFb(message[6]);
                         break;
                     }
@@ -1088,6 +1102,7 @@ namespace PepperDashPluginSamsungMdcDisplay
             }
 
             _powerIsOn = true;
+            _powerSetPending = true;
 
             SendBytes(
                 new byte[]
@@ -1137,6 +1152,7 @@ namespace PepperDashPluginSamsungMdcDisplay
             }
 
             _powerIsOn = false;
+            _powerSetPending = true;
 
             SendBytes(
                 new byte[]
@@ -1208,6 +1224,26 @@ namespace PepperDashPluginSamsungMdcDisplay
                     0x00,
                 }
             );
+        }
+
+        /// <summary>
+        /// Ends a fake warm-up or cool-down early, e.g. when the display refused the power command
+        /// </summary>
+        private void EndPowerTransition()
+        {
+            if (_isWarmingUp)
+            {
+                if (WarmupTimer != null) WarmupTimer.Stop();
+                _isWarmingUp = false;
+                IsWarmingUpFeedback.FireUpdate();
+            }
+
+            if (_isCoolingDown)
+            {
+                if (CooldownTimer != null) CooldownTimer.Stop();
+                _isCoolingDown = false;
+                IsCoolingDownFeedback.FireUpdate();
+            }
         }
 
         /// <summary>

@@ -86,6 +86,19 @@ internal sealed class SamsungMdcDriverCopy
     public byte[] PowerOn() => Format(new byte[] { Header, PowerControl, 0x00, 0x01, 0x01, 0x00 });
     public byte[] PowerOff() => Format(new byte[] { Header, PowerControl, 0x00, 0x01, 0x00, 0x00 });
     public byte[] PowerGet() => Format(new byte[] { Header, PowerControl, 0x00, 0x00, 0x00 });
+
+    /// <summary>PowerOn/PowerOff state: optimistic power, and a power SET pending</summary>
+    public byte[] SetPower(bool on)
+    {
+        PowerIsOn = on;
+        PowerSetPending = true;
+        return on ? PowerOn() : PowerOff();
+    }
+
+    public bool PowerSetPending;
+
+    /// <summary>Frames the driver sends by itself in reply to what it received (the power re-query)</summary>
+    public readonly List<byte[]> Sent = new();
     public byte[] InputGeneric(byte data) => Format(new byte[] { Header, InputSourceControl, 0x00, 0x01, data, 0x00 });
     public byte[] InputGet() => Format(new byte[] { Header, InputSourceControl, 0x00, 0x00, 0x00 });
     public byte[] VolumeGet() => Format(new byte[] { Header, VolumeControl, 0x00, 0x00, 0x00 });
@@ -272,6 +285,11 @@ internal sealed class SamsungMdcDriverCopy
         if (message[4] == 0x4E) // NAK: message[6] is an error code
         {
             NaksReceived++;
+            if (message[5] == PowerControl && PowerSetPending) // refused power SET: ask for the real state once
+            {
+                PowerSetPending = false;
+                Sent.Add(PowerGet());
+            }
             return;
         }
 
@@ -299,6 +317,7 @@ internal sealed class SamsungMdcDriverCopy
                 }
                 break;
             case PowerControl:
+                PowerSetPending = false;
                 UpdatePowerFb(message[6]);
                 break;
             case VolumeControl:
