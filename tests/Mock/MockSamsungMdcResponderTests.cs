@@ -440,6 +440,20 @@ public class MockSamsungMdcResponderTests
         driver.PowerIsOn.Should().BeFalse();
     }
 
+    [Fact]
+    public void Reply_Without_AA_Header_Is_Ignored()
+    {
+        // A complete frame is parsed before the buffer's header check, so the parser must check AA itself
+        var driver = SiteDriver();
+        var noHeader = new byte[] { 0x00, 0xFF, SiteId, 0x03, 0x41, 0x13, 0x01, 0x00 };
+        noHeader[7] = MockSamsungMdcResponder.Checksum(noHeader, 7);
+
+        driver.BytesReceived(noHeader);
+
+        driver.Exceptions.Should().BeEmpty();
+        driver.IsMuted.Should().BeFalse();
+    }
+
     // ---- Driver receive framing (PR #51 territory) ----
 
     [Fact]

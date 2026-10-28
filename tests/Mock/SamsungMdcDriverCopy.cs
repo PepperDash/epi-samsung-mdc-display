@@ -240,7 +240,7 @@ internal sealed class SamsungMdcDriverCopy
     private void ParseMessage(byte[] message)
     {
         ParsedMessages.Add(message);
-        if (message == null || message.Length < 7 || message[1] != 0xFF)
+        if (message == null || message.Length < 7 || message[0] != Header || message[1] != 0xFF)
         {
             return;
         }
