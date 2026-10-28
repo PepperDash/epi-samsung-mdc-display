@@ -1785,7 +1785,6 @@ namespace PepperDashPluginSamsungMdcDisplay
         private void SendVolumeCommand(ushort level)
         {
             int scaled;
-            _lastVolumeSent = level;
             if (!ScaleVolume)
             {
                 scaled = (int)Math.Round(NumericalHelpers.Scale(level, 0, 65535, 0, 100), MidpointRounding.AwayFromZero);
@@ -1794,6 +1793,10 @@ namespace PepperDashPluginSamsungMdcDisplay
             {
                 scaled = (int)Math.Round(NumericalHelpers.Scale(level, 0, 65535, _lowerLimit, _upperLimit), MidpointRounding.AwayFromZero);
             }
+
+            // The level the device was actually sent, not the raw slider value, so a tap before the
+            // feedback arrives still moves exactly one device level
+            _lastVolumeSent = DeviceLevelToLevel(scaled);
 
             SendBytes(
                 new byte[]
@@ -1891,20 +1894,22 @@ namespace PepperDashPluginSamsungMdcDisplay
             return (ushort)Math.Max(0, Math.Min(65535, Math.Round(scaled, MidpointRounding.AwayFromZero)));
         }
 
+        /// <summary>
+        /// A device volume level (0-100, or volumeLowerLimit-volumeUpperLimit) as a 0-65535 level
+        /// </summary>
+        private ushort DeviceLevelToLevel(int deviceLevel)
+        {
+            return ScaleVolume
+                ? ToLevel(NumericalHelpers.Scale(deviceLevel, _lowerLimit, _upperLimit, 0, 65535))
+                : ToLevel(NumericalHelpers.Scale(deviceLevel, 0, 100, 0, 65535));
+        }
+
         // <summary>
         // Volume feedback
         // </summary>
         private void UpdateVolumeFb(byte b)
         {
-            ushort newVol;
-            if (!ScaleVolume)
-            {
-                newVol = ToLevel(NumericalHelpers.Scale(b, 0, 100, 0, 65535));
-            }
-            else
-            {
-                newVol = ToLevel(NumericalHelpers.Scale(b, _lowerLimit, _upperLimit, 0, 65535));
-            }
+            var newVol = DeviceLevelToLevel(b);
             if (!_volumeIsRamping)
             {
                 _lastVolumeSent = newVol;

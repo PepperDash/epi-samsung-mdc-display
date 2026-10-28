@@ -114,7 +114,19 @@ internal sealed class SamsungMdcDriverCopy
             scaled = (int)Math.Round(Scale(level, 0, 65535, _lowerLimit, _upperLimit), MidpointRounding.AwayFromZero);
         }
 
+        LastVolumeSent = DeviceLevelToLevel(scaled);
         return Format(new byte[] { Header, VolumeControl, 0x00, 0x01, Convert.ToByte(scaled), 0x00 });
+    }
+
+    /// <summary>_lastVolumeSent: where the next tap starts (feedback outside a ramp, or the level last sent)</summary>
+    public ushort LastVolumeSent { get; private set; }
+
+    /// <summary>DeviceLevelToLevel, verbatim</summary>
+    private ushort DeviceLevelToLevel(int deviceLevel)
+    {
+        return ScaleVolume
+            ? ToLevel(Scale(deviceLevel, _lowerLimit, _upperLimit, 0, 65535))
+            : ToLevel(Scale(deviceLevel, 0, 100, 0, 65535));
     }
 
     /// <summary>InitVolumeControls: the ramp's step and limits, in 0-65535 units</summary>
@@ -368,15 +380,8 @@ internal sealed class SamsungMdcDriverCopy
 
     private void UpdateVolumeFb(byte b)
     {
-        ushort newVol;
-        if (!ScaleVolume)
-        {
-            newVol = ToLevel(Scale(b, 0, 100, 0, 65535));
-        }
-        else
-        {
-            newVol = ToLevel(Scale(b, _lowerLimit, _upperLimit, 0, 65535));
-        }
+        var newVol = DeviceLevelToLevel(b);
+        LastVolumeSent = newVol; // not ramping
         VolumeLevelForSig = newVol;
     }
 
