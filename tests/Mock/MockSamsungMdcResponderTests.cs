@@ -452,6 +452,82 @@ public class MockSamsungMdcResponderTests
         commands.Should().OnlyContain(c => panel.Respond(c).Count == 0);
     }
 
+    [Theory]
+    [InlineData(0x00, "Status")]
+    [InlineData(0x0B, "Serial Number")]
+    [InlineData(0x0E, "SW Version")]
+    [InlineData(0x11, "Power")]
+    [InlineData(0x12, "Volume")]
+    [InlineData(0x13, "Mute")]
+    [InlineData(0x14, "Input Source")]
+    [InlineData(0x1B, "System Configuration")]
+    [InlineData(0x85, "Temperature")]
+    [InlineData(0xD0, "LED Product Feature")]
+    [InlineData(0x99, "Unknown command")]
+    public void Nak_Log_Names_The_Refused_Command(byte command, string name)
+    {
+        SamsungMdcCommands.CommandName(command).Should().Be(name);
+    }
+
+    [Fact]
+    public void Nak_Error_Code_Is_The_Byte_Before_The_Checksum()
+    {
+        // Plain NAK: AA FF id 03 'N' r-cmd err cs; a NAK with a sub-command (0x1B 0x82) puts it before err
+        var driver = SiteDriver();
+        var panel = Panel();
+        panel.Fault = MockSamsungMdcFault.Ng;
+
+        var plain = panel.Respond(driver.MuteOn()).Single();
+        SamsungMdcCommands.NakErrorCode(plain).Should().Be(MockSamsungMdcResponder.NakError);
+
+        var withSubCommand = new byte[] { 0xAA, 0xFF, SiteId, 0x04, 0x4E, 0x1B, 0x82, 0x02, 0x00 };
+        SamsungMdcCommands.NakErrorCode(withSubCommand).Should().Be(0x02);
+
+        // A short NAK has no error byte: the byte before the checksum is the r-cmd, not an error code
+        var shortNak = new byte[] { 0xAA, 0xFF, SiteId, 0x02, 0x4E, 0x13, 0x00 };
+        shortNak[6] = MockSamsungMdcResponder.Checksum(shortNak, 6);
+        SamsungMdcCommands.NakErrorCode(shortNak).Should().BeNull();
+    }
+
+    [Fact]
+    public void Repeated_Refusal_Is_Logged_Loudly_Once_Until_Accepted()
+    {
+        // An unsupported poll is refused every 4.5 s: only the first refusal goes to Information
+        var nakLog = new SamsungMdcNakLog();
+
+        nakLog.IsNewRefusal(SiteId, 0xD0, 0x01).Should().BeTrue();
+        nakLog.IsNewRefusal(SiteId, 0xD0, 0x01).Should().BeFalse();
+        nakLog.IsNewRefusal(SiteId, 0xD0, 0x01).Should().BeFalse();
+
+        // Another command, or a different error for the same command, is new
+        nakLog.IsNewRefusal(SiteId, 0x13, 0x01).Should().BeTrue();
+        nakLog.IsNewRefusal(SiteId, 0xD0, 0x02).Should().BeTrue();
+        nakLog.IsNewRefusal(SiteId, 0x13, null).Should().BeTrue();
+
+        // Alternating error codes are each shown once, not on every alternation
+        nakLog.IsNewRefusal(SiteId, 0xD0, 0x01).Should().BeFalse();
+        nakLog.IsNewRefusal(SiteId, 0xD0, 0x02).Should().BeFalse();
+
+        // Once the display accepts the command, its next refusal is shown again
+        nakLog.Accepted(SiteId, 0xD0);
+        nakLog.IsNewRefusal(SiteId, 0xD0, 0x02).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Refusals_Are_Tracked_Per_Display_Id()
+    {
+        // A broadcast-configured driver hears every display on the line
+        var nakLog = new SamsungMdcNakLog();
+
+        nakLog.IsNewRefusal(0x01, 0xD0, 0x01).Should().BeTrue();
+        nakLog.IsNewRefusal(0x02, 0xD0, 0x01).Should().BeTrue("another display's first refusal is new");
+
+        // An ACK from display 0x01 does not clear display 0x02's refusal
+        nakLog.Accepted(0x01, 0xD0);
+        nakLog.IsNewRefusal(0x02, 0xD0, 0x01).Should().BeFalse();
+        nakLog.IsNewRefusal(0x01, 0xD0, 0x01).Should().BeTrue();
+    }
+
     [Fact]
     public void Nak_Is_Not_Applied_As_A_Value()
     {
