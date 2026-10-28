@@ -133,37 +133,90 @@ internal sealed class SamsungMdcDriverCopy
             _incomingBuffer.CopyTo(newBytes, 0);
             eBytes.CopyTo(newBytes, _incomingBuffer.Length);
 
-            // Get data length
-            if (newBytes.Length >= 6)
-            {
-                // check for header
+            var replies = new List<byte[]>();
+            var ignored = new List<byte[]>();
 
-                // header + length + checksum
-                var dataLength = 5 + newBytes[3];
-                if (newBytes.Length >= dataLength)
+            // Keep any trailing partial frame for the next receive event
+            _incomingBuffer = ExtractFrames(newBytes, replies, ignored);
+            IgnoredFrames.AddRange(ignored);
+
+            // Parse every reply in the chunk; one bad frame must not cost the others
+            foreach (var reply in replies)
+            {
+                try
                 {
-                    var message = new byte[dataLength];
-                    Array.Copy(newBytes, 0, message, 0, dataLength);
-                    ParseMessage(message);
-                    byte[] clear = { };
-                    _incomingBuffer = clear;
-                    return;
+                    ParseMessage(reply);
                 }
-            }
-            if (newBytes[0] == 0xAA)
-            {
-                _incomingBuffer = newBytes;
-            }
-            else
-            {
-                byte[] clear = { };
-                _incomingBuffer = clear;
+                catch (Exception ex)
+                {
+                    Exceptions.Add(ex);
+                }
             }
         }
         catch (Exception ex)
         {
             Exceptions.Add(ex);
         }
+    }
+
+    public readonly List<byte[]> IgnoredFrames = new();
+    public int Buffered => _incomingBuffer.Length;
+
+    /// <summary>ExtractFrames, verbatim</summary>
+    internal static byte[] ExtractFrames(byte[] buffer, List<byte[]> replies, List<byte[]> ignored)
+    {
+        var index = 0;
+
+        while (true)
+        {
+            // Resync: skip anything before the next header
+            while (index < buffer.Length && buffer[index] != Header)
+            {
+                index++;
+            }
+
+            // Need header, cmd, id and length to know the frame size
+            if (buffer.Length - index < 4)
+            {
+                break;
+            }
+
+            var frameLength = 5 + buffer[index + 3];
+            if (buffer.Length - index < frameLength)
+            {
+                break;
+            }
+
+            var checksum = 0;
+            for (var i = index + 1; i < index + frameLength - 1; i++)
+            {
+                checksum += buffer[i];
+            }
+
+            if ((byte)(checksum & 0xFF) != buffer[index + frameLength - 1])
+            {
+                // Not a real frame start (or a corrupt frame): look for the next header
+                index++;
+                continue;
+            }
+
+            var frame = new byte[frameLength];
+            Array.Copy(buffer, index, frame, 0, frameLength);
+            index += frameLength;
+
+            if (frame[1] == 0xFF)
+            {
+                replies.Add(frame);
+            }
+            else
+            {
+                ignored.Add(frame);
+            }
+        }
+
+        var remainder = new byte[buffer.Length - index];
+        Array.Copy(buffer, index, remainder, 0, remainder.Length);
+        return remainder;
     }
 
     /// <summary>ParseMessage, same indices</summary>
