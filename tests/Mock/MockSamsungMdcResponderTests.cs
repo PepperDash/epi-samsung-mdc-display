@@ -338,6 +338,37 @@ public class MockSamsungMdcResponderTests
 
     [Theory]
     [InlineData(0, 99)]
+    [InlineData(0, 0)]
+    [InlineData(20, 80)]
+    public void Tap_Before_Slider_Feedback_Moves_Exactly_One_Step(int lower, int upper)
+    {
+        // A slider level, then a tap before the panel's feedback arrives: the tap starts from
+        // _lastVolumeSent, which must be the level the device was sent, not the raw slider value
+        // (0-100: slider 983 sends 1; 983 + 656 = 1639 would send 3)
+        var top = upper > lower ? upper : 100;
+        var bottom = upper > lower ? lower : 0;
+        var wrong = new List<string>();
+
+        for (var slider = 0; slider <= 65535; slider += 7)
+        {
+            foreach (var direction in new[] { 1, -1 })
+            {
+                var driver = new SamsungMdcDriverCopy(SiteId, lower, upper);
+                int sent = driver.SendVolumeCommand((ushort)slider)[4];
+                var next = Math.Max(SamsungMdcDriverCopy.RampMin,
+                    Math.Min(SamsungMdcDriverCopy.RampMax, driver.LastVolumeSent + direction * driver.RampStep));
+                int tapped = driver.SendVolumeCommand((ushort)next)[4];
+                var expected = Math.Max(bottom, Math.Min(top, sent + direction));
+                if (tapped != expected) wrong.Add($"{slider}{(direction > 0 ? "+" : "-")}: {sent} -> {tapped}");
+            }
+        }
+
+        output.WriteLine($"limits {lower}-{upper}: {wrong.Count} taps off; first: {string.Join(", ", wrong.Take(3))}");
+        wrong.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(0, 99)]
     [InlineData(20, 80)]
     [InlineData(0, 0)]
     public void Volume_Ramp_Reaches_Exactly_The_Configured_Limits(int lower, int upper)
