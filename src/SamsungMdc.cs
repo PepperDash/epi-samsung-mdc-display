@@ -696,7 +696,8 @@ namespace PepperDashPluginSamsungMdcDisplay
                 // Software version control
                 case SamsungMdcCommands.SwVersionControl:
                     {
-                        var length = message[3];
+                        // DATA_LEN counts 'A' and the r-cmd too; the version bytes start at message[6]
+                        var length = message[3] - 2;
 
                         var firmware = new byte[length];
 
@@ -705,27 +706,16 @@ namespace PepperDashPluginSamsungMdcDisplay
                         UpdateFirmwareVersion(firmware);
                         break;
                     }
-                // Network info
+                // Network info (2.1.1B.82): 'A' 0x1B 0x82, then IP, subnet, gateway and DNS, 4 bytes each
                 case SamsungMdcCommands.SystemConfiguration:
                     {
-                        var length = message[3];
-                        if (message[4] == SamsungMdcCommands.NetworkConfiguration)
+                        if (message[6] == SamsungMdcCommands.NetworkConfiguration)
                         {
-                            var ipAddressInfo = new byte[length - 1];
+                            var ipAddressInfo = new byte[16];
 
-                            Array.Copy(message, 7, ipAddressInfo, 0, length - 1);
+                            Array.Copy(message, 7, ipAddressInfo, 0, 16);
 
                             UpdateNetworkInfo(ipAddressInfo);
-                            break;
-                        }
-
-                        if (message[4] == SamsungMdcCommands.SystemConfigurationMacAddress)
-                        {
-                            var macInfo = new byte[length - 1];
-
-                            Array.Copy(message, 6, macInfo, 0, length - 1);
-
-                            UpdateMacAddress(macInfo);
                         }
 
                         break;
@@ -766,6 +756,9 @@ namespace PepperDashPluginSamsungMdcDisplay
                     return message.Length > 7 && message[6] == SamsungMdcCommands.LedSubcmdMonitoring ? 4 : 1;
                 case SamsungMdcCommands.SerialNumberControl:
                     return 18;
+                case SamsungMdcCommands.SystemConfiguration:
+                    // sub-cmd, then 16 bytes of network configuration for 0x82
+                    return message.Length > 7 && message[6] == SamsungMdcCommands.NetworkConfiguration ? 17 : 1;
                 default:
                     return 0;
             }
@@ -1963,21 +1956,6 @@ namespace PepperDashPluginSamsungMdcDisplay
 
         #region System & Network Information
 
-        private void UpdateMacAddress(byte[] macInfo)
-        {
-            DeviceInfo.MacAddress = string.Format(
-                "{0:X2}:{1:X2}:{2:X2}:{3:X2}:{4:X2}:{5:X2}",
-                macInfo[0],
-                macInfo[1],
-                macInfo[2],
-                macInfo[3],
-                macInfo[4],
-                macInfo[5]
-            );
-
-            OnDeviceInfoChange();
-        }
-
         private void UpdateNetworkInfo(byte[] ipAddressInfo)
         {
             var ipAddress = new byte[4];
@@ -1995,9 +1973,20 @@ namespace PepperDashPluginSamsungMdcDisplay
             OnDeviceInfoChange();
         }
 
+        /// <summary>
+        /// 0x0E reply values: Version1-12 are project info, Version13 onwards the software version (spec 2.1.0E).
+        /// Returns the software version, or the whole string if the panel sends 12 bytes or fewer.
+        /// </summary>
+        internal static string ParseSoftwareVersion(byte[] firmware)
+        {
+            const int projectInfoLength = 12;
+            var start = firmware.Length > projectInfoLength ? projectInfoLength : 0;
+            return Encoding.ASCII.GetString(firmware, start, firmware.Length - start).TrimEnd('\0', ' ');
+        }
+
         private void UpdateFirmwareVersion(byte[] firmware)
         {
-            var version = Encoding.UTF8.GetString(firmware, 0, 12);
+            var version = ParseSoftwareVersion(firmware);
 
             DeviceInfo.FirmwareVersion = version;
 
@@ -2131,28 +2120,19 @@ namespace PepperDashPluginSamsungMdcDisplay
                     0x00,
                 }
             );
-            //get IP Info (0x1B, 0x82)
+            //get IP Info (2.1.1B.82): [HEADER][Cmd=0x1B][ID][DATA_LEN=0x01][SUBCMD=0x82][CS]
             SendBytes(
                 new byte[]
                 {
                     SamsungMdcCommands.Header,
+                    SamsungMdcCommands.SystemConfiguration,
+                    0x00,
+                    0x01,
                     SamsungMdcCommands.NetworkConfiguration,
                     0x00,
-                    0x00,
-                    0x00,
                 }
             );
-            //get MAC address (0x1B, 0x81)
-            SendBytes(
-                new byte[]
-                {
-                    SamsungMdcCommands.Header,
-                    SamsungMdcCommands.SystemConfigurationMacAddress,
-                    0x00,
-                    0x00,
-                    0x00,
-                }
-            );
+            // No MAC address query: MDC protocol v14.4c defines no 0x1B sub-command for it
         }
 
         public DeviceInfo DeviceInfo { get; private set; }

@@ -98,8 +98,7 @@ internal sealed class SamsungMdcDriverCopy
     {
         Format(new byte[] { Header, SerialNumberControl, 0x00, 0x00, 0x00 }),
         Format(new byte[] { Header, SwVersionControl, 0x00, 0x00, 0x00 }),
-        Format(new byte[] { Header, NetworkConfiguration, 0x00, 0x00, 0x00 }),
-        Format(new byte[] { Header, SystemConfigurationMacAddress, 0x00, 0x00, 0x00 }),
+        Format(new byte[] { Header, SystemConfiguration, 0x00, 0x01, NetworkConfiguration, 0x00 }),
     };
 
     /// <summary>SendVolumeCommand: the frame for a 0-65535 level</summary>
@@ -133,6 +132,14 @@ internal sealed class SamsungMdcDriverCopy
     internal static ushort ToLevel(double scaled)
     {
         return (ushort)Math.Max(0, Math.Min(65535, Math.Round(scaled, MidpointRounding.AwayFromZero)));
+    }
+
+    /// <summary>ParseSoftwareVersion, verbatim</summary>
+    internal static string ParseSoftwareVersion(byte[] firmware)
+    {
+        const int projectInfoLength = 12;
+        var start = firmware.Length > projectInfoLength ? projectInfoLength : 0;
+        return System.Text.Encoding.ASCII.GetString(firmware, start, firmware.Length - start).TrimEnd((char)0, (char)32);
     }
 
     /// <summary>SetInput(int) guard: the 1-based input numbers it accepts</summary>
@@ -298,19 +305,18 @@ internal sealed class SamsungMdcDriverCopy
                 }
             case SwVersionControl:
                 {
-                    var length = message[3];
+                    var length = message[3] - 2;
                     var firmware = new byte[length];
                     Array.Copy(message, 6, firmware, 0, length);
-                    FirmwareVersion = System.Text.Encoding.UTF8.GetString(firmware, 0, 12);
+                    FirmwareVersion = ParseSoftwareVersion(firmware);
                     break;
                 }
             case SystemConfiguration:
                 {
-                    var length = message[3];
-                    if (message[4] == NetworkConfiguration)
+                    if (message[6] == NetworkConfiguration)
                     {
-                        var ipAddressInfo = new byte[length - 1];
-                        Array.Copy(message, 7, ipAddressInfo, 0, length - 1);
+                        var ipAddressInfo = new byte[16];
+                        Array.Copy(message, 7, ipAddressInfo, 0, 16);
                         IpAddress = string.Format("{0}.{1}.{2}.{3}", ipAddressInfo[0], ipAddressInfo[1], ipAddressInfo[2], ipAddressInfo[3]);
                         break;
                     }
@@ -340,6 +346,8 @@ internal sealed class SamsungMdcDriverCopy
                 return message.Length > 7 && message[6] == LedSubcmdMonitoring ? 4 : 1;
             case SerialNumberControl:
                 return 18;
+            case SystemConfiguration:
+                return message.Length > 7 && message[6] == NetworkConfiguration ? 17 : 1;
             default:
                 return 0;
         }
