@@ -583,7 +583,7 @@ namespace PepperDashPluginSamsungMdcDisplay
 
                 // The same refusal on every poll (e.g. an unsupported LED product poll) drops to Debug
                 // until the display accepts that command again
-                if (_nakLog.IsNewRefusal(message[5], errorCode))
+                if (_nakLog.IsNewRefusal(message[2], message[5], errorCode))
                     this.LogInformation(refusedMessage, refusedArgs);
                 else
                     this.LogDebug(refusedMessage, refusedArgs);
@@ -597,7 +597,7 @@ namespace PepperDashPluginSamsungMdcDisplay
             }
 
             var command = message[5];
-            _nakLog.Accepted(command);
+            _nakLog.Accepted(message[2], command);
 
             if (!HasValues(message, ValueCountFor(command, message)))
             {
