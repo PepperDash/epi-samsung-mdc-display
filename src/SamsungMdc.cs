@@ -52,6 +52,9 @@ namespace PepperDashPluginSamsungMdcDisplay
         // A power SET has been sent and not yet acknowledged or refused
         private bool _powerSetPending;
 
+        // The power state before the pending SET's optimistic change, restored if the display refuses it
+        private bool _powerBeforeSet;
+
         private bool _powerIsOn;
         protected override Func<bool> PowerIsOnFeedbackFunc
         {
@@ -592,13 +595,17 @@ namespace PepperDashPluginSamsungMdcDisplay
                     this.LogDebug(refusedMessage, refusedArgs);
 
                 // A refused power SET leaves the optimistic power state (and a fake warm-up/cool-down)
-                // wrong until the next status poll: end the transition and ask for the real state once.
-                // Only after a SET, so a model that refuses the power query cannot loop.
+                // wrong until the next status poll. Put back the state from before the SET, so the next
+                // PowerOn/PowerOff is not dropped as a no-op even if the re-query is lost, end the
+                // transition, and ask for the real state once. Status, not power: an optimistic PowerOff
+                // also cleared the input. Only after a SET, so a model that refuses the query cannot loop.
                 if (message[5] == SamsungMdcCommands.PowerControl && _powerSetPending)
                 {
                     _powerSetPending = false;
+                    _powerIsOn = _powerBeforeSet;
                     EndPowerTransition();
-                    PowerGet();
+                    PowerIsOnFeedback.FireUpdate();
+                    StatusGet();
                 }
                 return;
             }
@@ -1115,6 +1122,7 @@ namespace PepperDashPluginSamsungMdcDisplay
                 return;
             }
 
+            _powerBeforeSet = _powerIsOn;
             _powerIsOn = true;
             _powerSetPending = true;
 
@@ -1167,6 +1175,7 @@ namespace PepperDashPluginSamsungMdcDisplay
                 return;
             }
 
+            _powerBeforeSet = _powerIsOn;
             _powerIsOn = false;
             _powerSetPending = true;
 
