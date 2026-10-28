@@ -492,19 +492,21 @@ public class MockSamsungMdcResponderTests
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public void Refused_Power_Set_Requeries_Power_Once(bool panelOn)
+    public void Refused_Power_Set_Restores_State_And_Requeries_Once(bool panelOn)
     {
-        // The driver sets power optimistically; when the panel refuses, one power GET corrects it
-        // instead of waiting for the next status poll (30 s by default)
+        // The driver sets power optimistically; when the panel refuses, the state from before the SET
+        // comes back at once, and one status GET confirms it instead of waiting for the next poll
         var driver = SiteDriver();
         var panel = Panel(powerOn: panelOn);
         Exchange(driver, panel, driver.StatusGet());
         driver.PowerIsOn.Should().Be(panelOn);
 
         panel.Fault = MockSamsungMdcFault.Ng;
-        Exchange(driver, panel, driver.SetPower(!panelOn));
+        var set = driver.SetPower(!panelOn);
         driver.PowerIsOn.Should().Be(!panelOn, "optimistic until the panel answers");
-        driver.Sent.Should().ContainSingle().Which.Should().Equal(driver.PowerGet());
+        Exchange(driver, panel, set);
+        driver.PowerIsOn.Should().Be(panelOn, "the refused SET's state is put back");
+        driver.Sent.Should().ContainSingle().Which.Should().Equal(driver.StatusGet());
 
         panel.Fault = MockSamsungMdcFault.None;
         Exchange(driver, panel, driver.Sent.Single());
@@ -513,11 +515,13 @@ public class MockSamsungMdcResponderTests
     }
 
     [Fact]
-    public void Refused_Power_Query_Is_Not_Requeried()
+    public void Refused_Requery_Is_Not_Repeated_And_Keeps_The_Restored_State()
     {
-        // A model that refuses the power GET must not start a GET/NAK loop
+        // A model that refuses the query too must not start a GET/NAK loop, and the restored state
+        // must stand, so the next PowerOff is sent rather than dropped as a no-op
         var driver = SiteDriver();
         var panel = Panel();
+        Exchange(driver, panel, driver.StatusGet());
         panel.Fault = MockSamsungMdcFault.Ng;
 
         Exchange(driver, panel, driver.SetPower(false));
@@ -525,6 +529,7 @@ public class MockSamsungMdcResponderTests
 
         driver.Sent.Should().HaveCount(1);
         driver.NaksReceived.Should().Be(2);
+        driver.PowerIsOn.Should().BeTrue("still the state from before the refused PowerOff");
     }
 
     [Fact]
