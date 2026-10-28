@@ -597,13 +597,15 @@ namespace PepperDashPluginSamsungMdcDisplay
             }
 
             var command = message[5];
-            _nakLog.Accepted(message[2], command);
 
             if (!HasValues(message, ValueCountFor(command, message)))
             {
                 this.LogVerbose("Ignoring short reply for command 0x{command:X2}: {frame}", command, ComTextHelper.GetEscapedText(message));
                 return;
             }
+
+            // Only an ACK that is used counts as the display accepting the command
+            _nakLog.Accepted(message[2], command);
 
             switch (command)
             {
