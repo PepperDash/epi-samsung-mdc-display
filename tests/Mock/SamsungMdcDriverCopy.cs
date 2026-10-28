@@ -264,6 +264,11 @@ internal sealed class SamsungMdcDriverCopy
             return;
         }
 
+        if (message[2] != Id && Id != 0xFE) // another display's reply
+        {
+            return;
+        }
+
         if (message[4] == 0x4E) // NAK: message[6] is an error code
         {
             NaksReceived++;

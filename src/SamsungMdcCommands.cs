@@ -13,6 +13,11 @@
         public const byte AckNak = 0xFF;
 
         /// <summary>
+        /// Display ID that addresses every display on the line; a SET sent to it is not acknowledged
+        /// </summary>
+        public const byte BroadcastId = 0xFE;
+
+        /// <summary>
         /// Reply frame byte 4 for an acknowledged command ('A')
         /// </summary>
         public const byte Ack = 0x41;
