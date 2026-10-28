@@ -1349,6 +1349,13 @@ namespace PepperDashPluginSamsungMdcDisplay
                             new SamsungInput("magicInfo", "Magic Info", this, InputMagicInfo)
                         )
                     },
+                    {
+                        "usb",
+                        new KeyValuePair<byte, SamsungInput>(
+                            SamsungMdcCommands.InputInternalUsb,
+                            new SamsungInput("usb", "USB", this, InputInternalUsb)
+                        )
+                    },
                 };
 
                 foreach (var activeInput in activeInputsMap)
@@ -1414,6 +1421,10 @@ namespace PepperDashPluginSamsungMdcDisplay
                         {
                             SamsungMdcCommands.InputMagicInfo,
                             new SamsungInput("magicInfo", "Magic Info", this, InputMagicInfo)
+                        },
+                        {
+                            SamsungMdcCommands.InputInternalUsb,
+                            new SamsungInput("usb", "USB", this, InputInternalUsb)
                         },
                     },
                 };
@@ -1688,12 +1699,11 @@ namespace PepperDashPluginSamsungMdcDisplay
 
             CurrentInputNumber = inputIndex;
 
-            if (Inputs.Items.ContainsKey(b))
+            // A source that is not a selectable input (e.g. left out by activeInputs) deselects them all,
+            // so the previous input is not left marked selected
+            foreach (var item in Inputs.Items)
             {
-                foreach (var item in Inputs.Items)
-                {
-                    item.Value.IsSelected = item.Key.Equals(b);
-                }
+                item.Value.IsSelected = item.Key.Equals(b);
             }
 
             Inputs.CurrentItem = b;
