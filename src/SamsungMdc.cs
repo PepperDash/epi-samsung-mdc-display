@@ -546,7 +546,8 @@ namespace PepperDashPluginSamsungMdcDisplay
             // input ack rx: {header}{command}{id}{dataLen}{ack/nak}{r-cmd}{val-1}{checksum}
             // input ack rx: { 0xAA }{ 0xFF  }{id}{ 0x03  }{'A'/'N'}{ 0x14}{input}{checksum}
             // Every reply is an ACK/NAK frame: header, 0xFF, id, length, 'A'/'N', r-cmd, values..., checksum
-            if (message == null || message.Length < 7 || message[1] != SamsungMdcCommands.AckNak)
+            if (message == null || message.Length < 7 || message[0] != SamsungMdcCommands.Header
+                || message[1] != SamsungMdcCommands.AckNak)
             {
                 this.LogVerbose("Ignoring non-reply frame: {frame}", message == null ? string.Empty : ComTextHelper.GetEscapedText(message));
                 return;
