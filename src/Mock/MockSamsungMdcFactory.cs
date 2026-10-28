@@ -1,5 +1,5 @@
+using System;
 using System.Collections.Generic;
-using System.Globalization;
 using Newtonsoft.Json.Linq;
 using PepperDash.Core;
 using PepperDash.Essentials.Core;
@@ -51,12 +51,20 @@ namespace PepperDashPluginSamsungMdcDisplay
             return new SamsungMdcDisplayController(dc.Key, dc.Name, config, comms);
         }
 
+        // Same conversion as the driver, so "0x02" and "02" both give 0x02
         private static byte ParseId(string id, byte fallback)
         {
-            byte value;
-            return !string.IsNullOrEmpty(id) && byte.TryParse(id, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out value)
-                ? value
-                : fallback;
+            if (string.IsNullOrEmpty(id))
+                return fallback;
+
+            try
+            {
+                return Convert.ToByte(id, 16);
+            }
+            catch (Exception e) when (e is FormatException || e is OverflowException || e is ArgumentException)
+            {
+                return fallback;
+            }
         }
     }
 }
