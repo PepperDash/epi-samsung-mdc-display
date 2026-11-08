@@ -684,7 +684,10 @@ namespace PepperDashPluginSamsungMdcDisplay
                 case SamsungMdcCommands.PowerControl:
                     {
                         this.LogVerbose("PowerControl-'{0}d'", message[6]);
-                        _powerSetPending = false;
+                        lock (_transitionLock)
+                        {
+                            _powerSetPending = false;
+                        }
                         UpdatePowerFb(message[6]);
                         break;
                     }
@@ -1381,11 +1384,15 @@ namespace PepperDashPluginSamsungMdcDisplay
             {
                 CurrentInputNumber = 0;
             }
-            if (newVal == _powerIsOn)
+            // Under the lock like PowerOn/PowerOff, which read and set _powerIsOn there
+            lock (_transitionLock)
             {
-                return;
+                if (newVal == _powerIsOn)
+                {
+                    return;
+                }
+                _powerIsOn = newVal;
             }
-            _powerIsOn = newVal;
             PowerIsOnFeedback.FireUpdate();
         }
 
