@@ -601,13 +601,29 @@ namespace PepperDashPluginSamsungMdcDisplay
                 // PowerOn/PowerOff is not dropped as a no-op even if the re-query is lost, end the
                 // transition, and ask for the real state once. Status, not power: an optimistic PowerOff
                 // also cleared the input. Only after a SET, so a model that refuses the query cannot loop.
-                if (message[5] == SamsungMdcCommands.PowerControl && _powerSetPending)
+                if (message[5] == SamsungMdcCommands.PowerControl)
                 {
-                    _powerSetPending = false;
-                    _powerIsOn = _powerBeforeSet;
-                    EndPowerTransition();
-                    PowerIsOnFeedback.FireUpdate();
-                    StatusGet();
+                    // Roll back and end the transition in one step, so a PowerOn/PowerOff retry that
+                    // starts meanwhile cannot have its new warm-up/cool-down cancelled by this NAK
+                    bool rolledBack, endedWarmup, endedCooldown;
+                    lock (_transitionLock)
+                    {
+                        rolledBack = _powerSetPending;
+                        endedWarmup = endedCooldown = false;
+                        if (rolledBack)
+                        {
+                            _powerSetPending = false;
+                            _powerIsOn = _powerBeforeSet;
+                            EndPowerTransitionLocked(out endedWarmup, out endedCooldown);
+                        }
+                    }
+
+                    if (rolledBack)
+                    {
+                        PublishEndedTransition(endedWarmup, endedCooldown);
+                        PowerIsOnFeedback.FireUpdate();
+                        StatusGet();
+                    }
                 }
                 return;
             }
@@ -1270,34 +1286,38 @@ namespace PepperDashPluginSamsungMdcDisplay
         }
 
         /// <summary>
-        /// Ends a fake warm-up or cool-down early, e.g. when the display refused the power command
+        /// Ends a fake warm-up or cool-down early, e.g. when the display refused the power command.
+        /// Caller holds _transitionLock and then calls PublishEndedTransition outside it.
         /// </summary>
-        private void EndPowerTransition()
+        private void EndPowerTransitionLocked(out bool endedWarmup, out bool endedCooldown)
         {
-            bool endedWarmup = false, endedCooldown = false;
+            endedWarmup = endedCooldown = false;
 
-            lock (_transitionLock)
+            // Clearing the timer makes its callback a no-op even if it is already running
+            if (_isWarmingUp)
             {
-                // Clearing the timer makes its callback a no-op even if it is already running
-                if (_isWarmingUp)
-                {
-                    WarmupTimer?.Stop();
-                    WarmupTimer?.Dispose();
-                    WarmupTimer = null;
-                    _isWarmingUp = false;
-                    endedWarmup = true;
-                }
-
-                if (_isCoolingDown)
-                {
-                    CooldownTimer?.Stop();
-                    CooldownTimer?.Dispose();
-                    CooldownTimer = null;
-                    _isCoolingDown = false;
-                    endedCooldown = true;
-                }
+                WarmupTimer?.Stop();
+                WarmupTimer?.Dispose();
+                WarmupTimer = null;
+                _isWarmingUp = false;
+                endedWarmup = true;
             }
 
+            if (_isCoolingDown)
+            {
+                CooldownTimer?.Stop();
+                CooldownTimer?.Dispose();
+                CooldownTimer = null;
+                _isCoolingDown = false;
+                endedCooldown = true;
+            }
+        }
+
+        /// <summary>
+        /// Publishes what EndPowerTransitionLocked ended. Call outside _transitionLock.
+        /// </summary>
+        private void PublishEndedTransition(bool endedWarmup, bool endedCooldown)
+        {
             if (endedWarmup)
             {
                 IsWarmingUpFeedback.FireUpdate();
@@ -1398,7 +1418,14 @@ namespace PepperDashPluginSamsungMdcDisplay
 
             // On and warmed up: switch now. _powerIsOn is set as soon as power on is sent, so a route
             // made during the warm-up must wait for it too, or the panel refuses the input select.
-            if (_powerIsOn && !_isWarmingUp)
+            // Read under the lock, so a PowerOn in progress is never seen half done (on, not yet warming).
+            bool readyNow;
+            lock (_transitionLock)
+            {
+                readyNow = _powerIsOn && !_isWarmingUp;
+            }
+
+            if (readyNow)
             {
                 if (selector is Action actionToExecute)
                 {
