@@ -19,10 +19,10 @@ namespace PepperDashPluginSamsungMdcDisplay
         public long PollIntervalMs { get; set; }
 
         [JsonProperty("coolingTimeMs")]
-        public uint CoolingTimeMs { get; set; }
+        public uint? CoolingTimeMs { get; set; }
 
         [JsonProperty("warmingTimeMs")]
-        public uint WarmingTimeMs { get; set; }
+        public uint? WarmingTimeMs { get; set; }
 
         [JsonProperty("showVolumeControls")]
         public bool ShowVolumeControls { get; set; }
