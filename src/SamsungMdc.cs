@@ -1126,8 +1126,10 @@ namespace PepperDashPluginSamsungMdcDisplay
             _powerIsOn = true;
             _powerSetPending = true;
 
-            // Set up the warm-up before sending, so a fast NAK finds a transition to cancel
-            if (WarmupTimer != null || WarmupTime == 0)
+            // Set up the warm-up before sending, so a fast NAK finds a transition to cancel.
+            // Every power on gets one: the base class never clears WarmupTimer, so gating on it
+            // gave only the first power on after a program start a warm-up.
+            if (WarmupTime == 0)
             {
                 PowerIsOnFeedback.FireUpdate();
             }
@@ -1137,15 +1139,23 @@ namespace PepperDashPluginSamsungMdcDisplay
                 IsWarmingUpFeedback.FireUpdate();
 
                 // Fake power-up cycle
-                WarmupTimer = new Timer(WarmupTime) { AutoReset = false };
-                WarmupTimer.Elapsed += (sender, args) =>
+                WarmupTimer?.Dispose();
+                var timer = new Timer(WarmupTime) { AutoReset = false };
+                timer.Elapsed += (sender, args) =>
                 {
+                    // A late tick from a timer that was stopped and replaced must not end the new warm-up
+                    if (WarmupTimer != timer)
+                    {
+                        return;
+                    }
+
                     _isWarmingUp = false;
 
                     IsWarmingUpFeedback.FireUpdate();
                     PowerIsOnFeedback.FireUpdate();
                 };
-                WarmupTimer.Start();
+                WarmupTimer = timer;
+                timer.Start();
             }
 
             SendBytes(
@@ -1183,8 +1193,9 @@ namespace PepperDashPluginSamsungMdcDisplay
 
             InputNumberFeedback.FireUpdate();
 
-            // Set up the cool-down before sending, so a fast NAK finds a transition to cancel
-            if (CooldownTimer != null || CooldownTime == 0)
+            // Set up the cool-down before sending, so a fast NAK finds a transition to cancel.
+            // Every power off gets one (see PowerOn).
+            if (CooldownTime == 0)
             {
                 PowerIsOnFeedback.FireUpdate();
             }
@@ -1195,14 +1206,22 @@ namespace PepperDashPluginSamsungMdcDisplay
                 IsCoolingDownFeedback.FireUpdate();
 
                 // Fake cool-down cycle
-                CooldownTimer = new Timer(CooldownTime) { AutoReset = false };
-                CooldownTimer.Elapsed += (sender, args) =>
+                CooldownTimer?.Dispose();
+                var timer = new Timer(CooldownTime) { AutoReset = false };
+                timer.Elapsed += (sender, args) =>
                 {
+                    // A late tick from a timer that was stopped and replaced must not end the new cool-down
+                    if (CooldownTimer != timer)
+                    {
+                        return;
+                    }
+
                     _isCoolingDown = false;
                     PowerIsOnFeedback.FireUpdate();
                     IsCoolingDownFeedback.FireUpdate();
                 };
-                CooldownTimer.Start();
+                CooldownTimer = timer;
+                timer.Start();
             }
 
             SendBytes(
@@ -1329,16 +1348,19 @@ namespace PepperDashPluginSamsungMdcDisplay
                 return;
             }
 
-            if (_powerIsOn)
+            // On and warmed up: switch now. _powerIsOn is set as soon as power on is sent, so a route
+            // made during the warm-up must wait for it too, or the panel refuses the input select.
+            if (_powerIsOn && !_isWarmingUp)
             {
                 if (selector is Action actionToExecute)
                 {
                     actionToExecute();
                 }
             }
-            else // if power is off, wait until we get on FB to send it.
+            else // off or warming up: wait until the warm-up ends to send it
             {
                 // One-time event handler to wait for power on before executing switch
+                var executed = 0;
                 EventHandler<FeedbackEventArgs> handler = null; // necessary to allow reference inside lambda to handler
                 handler = (o, a) =>
                 {
@@ -1349,13 +1371,26 @@ namespace PepperDashPluginSamsungMdcDisplay
 
                     IsWarmingUpFeedback.OutputChange -= handler;
 
+                    // The feedback and the check below can both get here; switch once
+                    if (System.Threading.Interlocked.Exchange(ref executed, 1) == 1)
+                    {
+                        return;
+                    }
+
                     if (selector is Action actionToExecute)
                     {
                         actionToExecute();
                     }
                 };
                 IsWarmingUpFeedback.OutputChange += handler; // attach and wait for on FB
-                PowerOn();
+                PowerOn(); // no-op while warming up
+
+                // No warm-up feedback is coming if the display is already on and not warming: the
+                // warm-up ended before the handler was attached, or warmingTimeMs is 0
+                if (_powerIsOn && !_isWarmingUp)
+                {
+                    handler(this, null);
+                }
             }
         }
 
