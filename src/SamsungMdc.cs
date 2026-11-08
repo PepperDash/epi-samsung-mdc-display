@@ -68,6 +68,8 @@ namespace PepperDashPluginSamsungMdcDisplay
         }
 
         private bool _isWarmingUp;
+        // Guards the warm-up / cool-down state against the timer callbacks; feedback fires outside it
+        private readonly object _transitionLock = new object();
         protected override Func<bool> IsWarmingUpFeedbackFunc
         {
             get { return () => _isWarmingUp; }
@@ -1117,45 +1119,43 @@ namespace PepperDashPluginSamsungMdcDisplay
         {
             _isPoweringOnIgnorePowerFb = true;
 
-            if (_powerIsOn || _isWarmingUp || _isCoolingDown)
+            bool warming;
+            lock (_transitionLock)
             {
-                return;
+                if (_powerIsOn || _isWarmingUp || _isCoolingDown)
+                {
+                    return;
+                }
+
+                _powerBeforeSet = _powerIsOn;
+                _powerIsOn = true;
+                _powerSetPending = true;
+
+                // Set up the warm-up before sending, so a fast NAK finds a transition to cancel.
+                // Every power on gets one: the base class never clears WarmupTimer, so gating on it
+                // gave only the first power on after a program start a warm-up.
+                warming = WarmupTime != 0;
+                if (warming)
+                {
+                    _isWarmingUp = true;
+
+                    // Fake power-up cycle
+                    WarmupTimer?.Dispose();
+                    var timer = new Timer(WarmupTime) { AutoReset = false };
+                    timer.Elapsed += (sender, args) => OnWarmupElapsed(timer);
+                    WarmupTimer = timer;
+                    timer.Start();
+                }
             }
 
-            _powerBeforeSet = _powerIsOn;
-            _powerIsOn = true;
-            _powerSetPending = true;
-
-            // Set up the warm-up before sending, so a fast NAK finds a transition to cancel.
-            // Every power on gets one: the base class never clears WarmupTimer, so gating on it
-            // gave only the first power on after a program start a warm-up.
-            if (WarmupTime == 0)
+            // Outside the lock: FireUpdate reads the current flags, so a late fire only repeats the current state
+            if (warming)
             {
-                PowerIsOnFeedback.FireUpdate();
+                IsWarmingUpFeedback.FireUpdate();
             }
             else
             {
-                _isWarmingUp = true;
-                IsWarmingUpFeedback.FireUpdate();
-
-                // Fake power-up cycle
-                WarmupTimer?.Dispose();
-                var timer = new Timer(WarmupTime) { AutoReset = false };
-                timer.Elapsed += (sender, args) =>
-                {
-                    // A late tick from a timer that was stopped and replaced must not end the new warm-up
-                    if (WarmupTimer != timer)
-                    {
-                        return;
-                    }
-
-                    _isWarmingUp = false;
-
-                    IsWarmingUpFeedback.FireUpdate();
-                    PowerIsOnFeedback.FireUpdate();
-                };
-                WarmupTimer = timer;
-                timer.Start();
+                PowerIsOnFeedback.FireUpdate();
             }
 
             SendBytes(
@@ -1180,48 +1180,45 @@ namespace PepperDashPluginSamsungMdcDisplay
             _isPoweringOnIgnorePowerFb = false;
             // If a display has unreliable-power off feedback, just override this and
             // remove this check.
-            if (!_powerIsOn || _isWarmingUp || _isCoolingDown)
+            bool cooling;
+            lock (_transitionLock)
             {
-                return;
+                if (!_powerIsOn || _isWarmingUp || _isCoolingDown)
+                {
+                    return;
+                }
+
+                _powerBeforeSet = _powerIsOn;
+                _powerIsOn = false;
+                _powerSetPending = true;
+
+                CurrentInputNumber = 0;
+
+                // Set up the cool-down before sending, so a fast NAK finds a transition to cancel.
+                // Every power off gets one (see PowerOn).
+                cooling = CooldownTime != 0;
+                if (cooling)
+                {
+                    _isCoolingDown = true;
+
+                    // Fake cool-down cycle
+                    CooldownTimer?.Dispose();
+                    var timer = new Timer(CooldownTime) { AutoReset = false };
+                    timer.Elapsed += (sender, args) => OnCooldownElapsed(timer);
+                    CooldownTimer = timer;
+                    timer.Start();
+                }
             }
-
-            _powerBeforeSet = _powerIsOn;
-            _powerIsOn = false;
-            _powerSetPending = true;
-
-            CurrentInputNumber = 0;
 
             InputNumberFeedback.FireUpdate();
 
-            // Set up the cool-down before sending, so a fast NAK finds a transition to cancel.
-            // Every power off gets one (see PowerOn).
-            if (CooldownTime == 0)
+            if (cooling)
             {
-                PowerIsOnFeedback.FireUpdate();
+                IsCoolingDownFeedback.FireUpdate();
             }
             else
             {
-                _isCoolingDown = true;
-
-                IsCoolingDownFeedback.FireUpdate();
-
-                // Fake cool-down cycle
-                CooldownTimer?.Dispose();
-                var timer = new Timer(CooldownTime) { AutoReset = false };
-                timer.Elapsed += (sender, args) =>
-                {
-                    // A late tick from a timer that was stopped and replaced must not end the new cool-down
-                    if (CooldownTimer != timer)
-                    {
-                        return;
-                    }
-
-                    _isCoolingDown = false;
-                    PowerIsOnFeedback.FireUpdate();
-                    IsCoolingDownFeedback.FireUpdate();
-                };
-                CooldownTimer = timer;
-                timer.Start();
+                PowerIsOnFeedback.FireUpdate();
             }
 
             SendBytes(
@@ -1277,30 +1274,81 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// </summary>
         private void EndPowerTransition()
         {
-            var ended = false;
+            bool endedWarmup = false, endedCooldown = false;
 
-            if (_isWarmingUp)
+            lock (_transitionLock)
             {
-                if (WarmupTimer != null) WarmupTimer.Stop();
-                _isWarmingUp = false;
-                IsWarmingUpFeedback.FireUpdate();
-                ended = true;
+                // Clearing the timer makes its callback a no-op even if it is already running
+                if (_isWarmingUp)
+                {
+                    WarmupTimer?.Stop();
+                    WarmupTimer?.Dispose();
+                    WarmupTimer = null;
+                    _isWarmingUp = false;
+                    endedWarmup = true;
+                }
+
+                if (_isCoolingDown)
+                {
+                    CooldownTimer?.Stop();
+                    CooldownTimer?.Dispose();
+                    CooldownTimer = null;
+                    _isCoolingDown = false;
+                    endedCooldown = true;
+                }
             }
 
-            if (_isCoolingDown)
+            if (endedWarmup)
             {
-                if (CooldownTimer != null) CooldownTimer.Stop();
-                _isCoolingDown = false;
+                IsWarmingUpFeedback.FireUpdate();
+            }
+
+            if (endedCooldown)
+            {
                 IsCoolingDownFeedback.FireUpdate();
-                ended = true;
             }
 
             // The stopped timer would have published power feedback; publish it now, since the
             // re-query reply only publishes when the state changes
-            if (ended)
+            if (endedWarmup || endedCooldown)
             {
                 PowerIsOnFeedback.FireUpdate();
             }
+        }
+
+        // Ends the warm-up this timer started. Checked and cleared under the lock, so a callback from a
+        // timer that was cancelled or replaced (even one already running) cannot end a newer warm-up.
+        private void OnWarmupElapsed(Timer timer)
+        {
+            lock (_transitionLock)
+            {
+                if (WarmupTimer != timer || !_isWarmingUp)
+                {
+                    return;
+                }
+
+                _isWarmingUp = false;
+            }
+
+            IsWarmingUpFeedback.FireUpdate();
+            PowerIsOnFeedback.FireUpdate();
+        }
+
+        // Same as OnWarmupElapsed, for the cool-down
+        private void OnCooldownElapsed(Timer timer)
+        {
+            lock (_transitionLock)
+            {
+                if (CooldownTimer != timer || !_isCoolingDown)
+                {
+                    return;
+                }
+
+                _isCoolingDown = false;
+            }
+
+            PowerIsOnFeedback.FireUpdate();
+            IsCoolingDownFeedback.FireUpdate();
         }
 
         /// <summary>
@@ -1387,7 +1435,13 @@ namespace PepperDashPluginSamsungMdcDisplay
 
                 // No warm-up feedback is coming if the display is already on and not warming: the
                 // warm-up ended before the handler was attached, or warmingTimeMs is 0
-                if (_powerIsOn && !_isWarmingUp)
+                bool ready;
+                lock (_transitionLock)
+                {
+                    ready = _powerIsOn && !_isWarmingUp;
+                }
+
+                if (ready)
                 {
                     handler(this, null);
                 }
