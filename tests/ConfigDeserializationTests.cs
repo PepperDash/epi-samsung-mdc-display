@@ -116,8 +116,6 @@ public class ConfigDeserializationTests
     [InlineData("VolumeUpperLimit",   "Int32")]
     [InlineData("VolumeLowerLimit",   "Int32")]
     [InlineData("PollIntervalMs",     "Int64")]
-    [InlineData("CoolingTimeMs",      "UInt32")]
-    [InlineData("WarmingTimeMs",      "UInt32")]
     [InlineData("ShowVolumeControls", "Boolean")]
     [InlineData("PollLedTemps",       "Boolean")]
     public void Config_Property_Type_Matches(string propertyName, string expectedTypeName)
@@ -126,6 +124,21 @@ public class ConfigDeserializationTests
         prop.Should().NotBeNull($"SamsungMdcDisplayPropertiesConfig should expose {propertyName}");
         prop!.PropertyType.Name.Should().Be(expectedTypeName,
             $"{propertyName} should be {expectedTypeName} for the config contract to hold.");
+    }
+
+    // Nullable so a value left out of the config can be told apart from an explicit 0:
+    // left out gets the 15 s default, 0 turns the warm-up/cool-down off.
+    [Theory]
+    [InlineData("CoolingTimeMs")]
+    [InlineData("WarmingTimeMs")]
+    public void Transition_Time_Is_Nullable_UInt32(string propertyName)
+    {
+        var prop = ConfigType.Value!.GetProperty(propertyName);
+        prop.Should().NotBeNull($"SamsungMdcDisplayPropertiesConfig should expose {propertyName}");
+        // Compared by name: the plugin is loaded in a MetadataLoadContext, so its types are not typeof() types
+        var type = prop!.PropertyType;
+        type.Name.Should().Be("Nullable`1", $"{propertyName} should be uint? so a missing value gets the default");
+        type.GenericTypeArguments.Should().ContainSingle().Which.Name.Should().Be("UInt32");
     }
 
     [Theory]

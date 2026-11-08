@@ -211,6 +211,8 @@ This plugin was built using the Samsung SEC-VD-DSW Multiple Display Control docu
 },
 ```
 
+`warmingTimeMs` and `coolingTimeMs` set how long the display reports warming up or cooling down after a power command. Left out, each defaults to 15000 (15 s). Set `0` to report the new power state straight away.
+
 ### Display Plugin Bridge Object
 
 ```JSON

@@ -40,6 +40,7 @@ namespace PepperDashPluginSamsungMdcDisplay
         public byte Id { get; private set; }
         private readonly uint _coolingTimeMs;
         private readonly uint _warmingTimeMs;
+        private const uint DefaultTransitionTimeMs = 15000;
         private readonly long _pollIntervalMs;
         private readonly List<CustomInput> _customInputs;
 
@@ -204,8 +205,9 @@ namespace PepperDashPluginSamsungMdcDisplay
             _upperLimit = _config.VolumeUpperLimit;
             _lowerLimit = _config.VolumeLowerLimit;
             _pollIntervalMs = _config.PollIntervalMs;
-            _coolingTimeMs = _config.CoolingTimeMs;
-            _warmingTimeMs = _config.WarmingTimeMs;
+            // Left out of the config means the default; an explicit 0 turns the warm-up/cool-down off
+            _coolingTimeMs = _config.CoolingTimeMs ?? DefaultTransitionTimeMs;
+            _warmingTimeMs = _config.WarmingTimeMs ?? DefaultTransitionTimeMs;
             _showVolumeControls = _config.ShowVolumeControls;
             _pollLedTemps = config.PollLedTemps;
             _customInputs = config.CustomInputs;
@@ -827,8 +829,8 @@ namespace PepperDashPluginSamsungMdcDisplay
         /// </summary>
         private void Init()
         {
-            WarmupTime = _warmingTimeMs >= 0 ? _warmingTimeMs : 15000;
-            CooldownTime = _coolingTimeMs >= 0 ? _coolingTimeMs : 15000;
+            WarmupTime = _warmingTimeMs;
+            CooldownTime = _coolingTimeMs;
 
             InitCommMonitor();
 
