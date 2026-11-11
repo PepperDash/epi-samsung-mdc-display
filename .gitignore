@@ -370,6 +370,9 @@ FodyWeavers.xsd
 
 epi-display-clzbuilds/
 
-/output/Pepperdash.Essentials.Plugins.Display.Samsung.MDC.1.0.0-local.cplz
+# SIMPL+ compiler output, rebuilt from the .usp sources on every compile
+SPlsWork/
+
+/output/*-local*
 
 .DS_Store
